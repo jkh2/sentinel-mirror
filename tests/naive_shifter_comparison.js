@@ -1,5 +1,6 @@
-// Why we do not use the simple two-tap delay-line shifter: how much energy lands on the target pitch
-// depends wildly on how the voice's period lines up with the window (6% to 100%). Compare with pitch_test.js.
+// DIAGNOSTIC ONLY (no pass/fail): shows why we do not use the simple two-tap delay-line pitch shifter.
+// How much energy lands on the target pitch depends wildly on how the voice period lines up with the window
+// (6% to 100%). This is a self-contained copy of that old algorithm, not the shipped code. Compare with pitch_test.js.
 // Run: node tests/naive_shifter_comparison.js
 // compare: how much of the output energy lands on the intended pitch (voice-like harmonic input)
 const sr=48000;

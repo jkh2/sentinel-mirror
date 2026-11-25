@@ -1,9 +1,14 @@
-import os, sys, pathlib
+"""CHECK + VISUAL REVIEW: renders all six characters in six expressions (no camera, via the window.__mirror test hook).
+Pass criteria: six characters; each of the 36 renders actually draws (head pixel differs from background, PNG not blank);
+no page errors. Screenshots go to tests/out/ for review by eye. Looking right is a human judgment, not asserted.
+Needs: python3 -m http.server 8765 (repo root).  Run: python3 tests/render_test.py"""
+import os, sys, pathlib, asyncio
 HERE=pathlib.Path(__file__).resolve().parent
-OUT=HERE/'out'; OUT.mkdir(exist_ok=True)
-CHROME=os.environ.get('CHROME','/usr/bin/google-chrome')
-BASE=os.environ.get('MIRROR_URL','http://localhost:8765')
-import asyncio, json, sys
+sys.path.insert(0, str(HERE))
+from _check import check, finish, page_errors
+OUT=HERE/"out"; OUT.mkdir(exist_ok=True)
+CHROME=os.environ.get("CHROME","/usr/bin/google-chrome")
+BASE=os.environ.get("MIRROR_URL","http://localhost:8765")
 from playwright.async_api import async_playwright
 POSES = {
  'neutral': dict(yaw=0.0, pitch=0.0, smileL=.25, smileR=.25),
@@ -38,23 +43,39 @@ JS = r"""
 """
 async def main():
     async with async_playwright() as pw:
-        b = await pw.chromium.launch(executable_path=CHROME, args=['--no-sandbox'])
-        pg = await b.new_page(viewport={'width':560,'height':560})
-        errs=[]
-        pg.on('pageerror', lambda e: errs.append(str(e)))
-        pg.on('console', lambda m: errs.append('console:'+m.text) if m.type=='error' else None)
-        await pg.goto(BASE+'/index.html?test=1')
+        b = await pw.chromium.launch(executable_path=CHROME, args=["--no-sandbox"])
+        pg = await b.new_page(viewport={"width":560,"height":560})
+        logs=[]
+        pg.on("pageerror", lambda e: logs.append(str(e)))
+        pg.on("console", lambda m: logs.append("console: "+m.text) if m.type=="error" else None)
+        await pg.goto(BASE+"/index.html?test=1")
         await pg.wait_for_timeout(500)
         names = await pg.evaluate("window.__mirror.CHARS.map(c=>c.id)")
+        drawn, missing = 0, []
         for ci,n in enumerate(names):
             for pn,p in POSES.items():
                 await pg.evaluate(JS, [ci, p])
                 await pg.wait_for_timeout(80)
-                await pg.screenshot(path=str(OUT/f'shot_{n}_{pn}.png'))
-        # also the start screen and UI
-        await pg.goto(BASE+'/index.html')
+                f = OUT/f"shot_{n}_{pn}.png"
+                await pg.screenshot(path=str(f))
+                # something must be drawn across the head: scan a vertical line through the head and take the biggest
+                # color difference from the background at a top corner (a single pixel can match, e.g. robot's dark screen)
+                diff = await pg.evaluate("""()=>{ const c=document.getElementById('c'), x=c.getContext('2d'), d=window.devicePixelRatio||1;
+                  const px=(X,Y)=>x.getImageData(Math.round(X*d),Math.round(Y*d),1,1).data, b=px(6, 70); let mx=0;
+                  for(let k=0;k<40;k++){ const a=px(innerWidth/2, innerHeight*(0.22+0.33*k/39)); mx=Math.max(mx,Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])+Math.abs(a[2]-b[2])); }
+                  return mx; }""")
+                if f.exists() and f.stat().st_size > 15000 and diff > 120: drawn += 1
+                else: missing.append(f"{n}/{pn} (bytes {f.stat().st_size if f.exists() else 0}, diff {diff})")
+        await pg.goto(BASE+"/index.html")
         await pg.wait_for_timeout(400)
-        await pg.screenshot(path=str(OUT/'ui_start.png'))
-        print('errors:', errs)
+        await pg.screenshot(path=str(OUT/"ui_start.png"))
+        total = len(names)*len(POSES)
+        print(f"Raw results:\n  characters: {names}\n  expressions: {list(POSES)}\n  screenshots in {OUT}\n")
+        check(len(names) == 6, "six characters defined", names)
+        check(drawn == total, "every character draws in every expression", f"{drawn}/{total}" + (f"; missing {missing}" if missing else ""))
+        check(not page_errors(logs), "no page errors", page_errors(logs))
+        print("\nThe checks above only prove each character drew. Whether it LOOKS right is a human call:")
+        print("open tests/out/shot_*.png and review by eye (expressions, proportions, nothing resembling a known character).")
         await b.close()
+    finish()
 asyncio.run(main())

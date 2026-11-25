@@ -2,7 +2,7 @@
 
 **From:** Claude Opus 5.5 (Anthropic), James's collaborator on v1 through the voice and call-mode work, Nov 25 2026
 **To:** Orion Sentinel, project lead for the next phase
-**Code at handoff:** `main` @ `8c83eba` ("Enhance README with video call setup instructions"). This doc, `docs/ORION-SETUP.md`, and `tests/` arrive on branch `docs/opus-handoff`. That branch changes no app code.
+**Code at handoff:** `main` @ `8c83eba` ("Enhance README with video call setup instructions"). This doc, `docs/ORION-SETUP.md`, and `tests/` arrive on branch `docs/opus-handoff` (PR #1). That branch changes no app code.
 
 Welcome, Orion. This doc tries to give you the *why* behind the code, so you can change things knowing what each choice was protecting. Where I'm unsure, I say so.
 
@@ -16,7 +16,7 @@ Welcome, Orion. This doc tries to give you the *why* behind the code, so you can
 | User guide | `README.md` | Includes the video-call setup and the credits James wants kept (see §12) |
 | README image | `screenshot.png` | Six characters rendered by `tests/render_test.py`, buttons hidden |
 | OBS + VB-Cable setup for James's PC | `docs/ORION-SETUP.md` | Was only a chat attachment until now |
-| Test harness | `tests/` | Was only in my sandbox until now. See §10 |
+| Test harness | `tests/` | Was only in my sandbox until now. Checks that exit nonzero on failure, plus labeled diagnostics. See §10 |
 
 **Anything only in the Claude conversation?** No, not once this branch merges. I published no artifacts for this project; everything was delivered as files that James uploaded. GitHub `main` matches my last `index.html`, `README.md` and `screenshot.png` byte for byte (checked with `cmp` before writing this).
 
@@ -87,7 +87,7 @@ James reported that the character "does random stuff on its own." It was mostly 
 
 **Cartoon proportions** (`cartoonBody`): real shoulders sit about 2.3 head-radii below the face, which looked like a giraffe neck. Drawn shoulders keep 30% of the real head-to-shoulder offset and are pulled in to about 1.3 head-radii. They keep the real lean, tilt and shrug, and elbows shift half as much. **Wrists and hands are never moved**, so paws land exactly where James's hands are.
 
-**Status:** verified with synthetic landmark sequences (`tests/arm_trust_test.py`) and a real MediaPipe pose photo and thumbs-up photo. **Not yet confirmed by James on a live camera.** He hasn't reported back since this fix.
+**Status:** enforced by `tests/arm_trust_test.py` on synthetic landmark sequences, and exercised and a real MediaPipe pose photo and thumbs-up photo. **Not yet confirmed by James on a live camera.** He hasn't reported back since this fix.
 
 ## 7. Characters and drawing
 
@@ -121,14 +121,14 @@ analyser taps after the highpass → mouth lip sync + level meter
 - Each head's delay moves by (1 − r) samples per sample. A head starts at `base(r) = 4 + max(0, r−1)·G`, so a pitch-up head never reads ahead of the write pointer.
 - **On restart, a head searches** a window of 2·S (S = 6.7 ms, about one period of a 75 Hz voice) for the start delay whose last M = 8 ms of waveform best matches what the other head is playing right now (normalized cross-correlation). The search is coarse (step 3) and then fine (±2, step 1), using every other sample.
 - When pitch = 1 and wobble = 0, a slow crossfade (`byp`) bypasses to the dry signal, so "Normal" has no splicing at all.
-- Measured: 92–100% on-target at ±12 semitones for 110, 150 and 210 Hz voices, exact pitch across all presets (`tests/pitch_test.js`), and about 10 ms of CPU per second of audio in Node. Latency is roughly 20–50 ms, highest for big pitch-ups.
+- Measured during development: 92–100% on-target at ±12 semitones for 110, 150 and 210 Hz voices, and about 10 ms of CPU per second of audio in Node. `tests/pitch_test.js` now enforces pitch within max(2 Hz, 1%) and level within 10% for every preset range. Latency is roughly 20–50 ms, highest for big pitch-ups.
 
 **The gentle gate** (inside the worklet):
 - The envelope rises fast (0.05 per sample) and falls with an 80 ms time constant.
 - When the envelope passes the threshold (default **0.0035**), a **0.35 s hold** starts.
 - Gain opens fast and closes over about 150 ms, down to a **0.12 floor** (never dead silence).
 
-The old gate (30 ms release, closing to 0) muted 4% / 11% / 42% of speaking moments at mic volume ×1 / ×0.5 / ×0.25. The gentle gate mutes 0.0% / 0.2% / 0.2% (`tests/gate_test.js`). James confirmed on his phone that it's "much better."
+The old gate (30 ms release, closing to 0) muted 4% / 11% / 42% of speaking moments at mic volume ×1 / ×0.5 / ×0.25. The gentle gate mutes 0.0% / 0.2% / 0.2%. `tests/gate_test.js` fails if any volume goes above 1%. James confirmed on his phone that it's "much better."
 
 **Echo canceller policy** (`voiceOn`): `echoCancellation` and `noiseSuppression` are **on only when "I'm using" = Speaker *and* Hear it live is on.** Reason: when the changed voice plays out loud, the platform echo canceller treats it as an echo of the user and ducks the mic. That was the second cause of the cut-outs. With headphones, or with nothing playing, the canceller only hurts. Changing either setting restarts the mic. `autoGainControl` is always on.
 
@@ -146,33 +146,45 @@ The old gate (30 ms release, closing to 0) muted 4% / 11% / 42% of speaking mome
 
 ## 10. Tests
 
-How to run them is at the top of each file. Short version:
+See `tests/README.md` for the full table and run instructions. Two kinds of scripts live there:
 
-```bash
-python3 -m http.server 8765          # from the repo root
-python3 tests/make_test_media.py     # talk.wav + MediaPipe sample images as fake camera feeds (needs ffmpeg)
-node tests/pitch_test.js             # WSOLA pitch accuracy, all presets' range
-node tests/gate_test.js              # % of speech muted at 3 mic volumes
-node tests/naive_shifter_comparison.js   # why not the simple shifter
-python3 tests/arm_trust_test.py      # synthetic pose/hand sequences through processPose/processHands
-python3 tests/voice_test.py          # fake mic → voice on → lip sync → Match character → record chipmunk clip → decode audio, check pitch
-python3 tests/call_mode_test.py      # mic/output pickers populate, call mode hides UI, Esc restores
-python3 tests/save_test.py           # record + Save downloads an MP4; Photo + Save downloads a PNG
-python3 tests/render_test.py         # every character × 6 expressions → tests/out/shot_*.png (review by eye)
-python3 tests/live_tracking_test.py tests/thumb_up.y4m tests/out/live_hand.png 2 fakeface   # real MediaPipe models on a fake camera
-```
+- **Checks** print raw measurements, then `PASS`/`FAIL` per criterion, and **exit 1 on any failure**.
+- **Diagnostics** only print measurements.
 
-Set `CHROME=/path/to/chrome` if Chrome isn't at `/usr/bin/google-chrome`. Python tests need `playwright` (driving your installed Chrome). `make_test_media.py` needs `numpy` and `ffmpeg`.
+`bash tests/run_all.sh` runs every check (serve the repo root on :8765 first, and run `tests/make_test_media.py` once).
 
-**Results at handoff (all on `8c83eba`):**
-- All pass.
+| Script | Kind | Pass criteria |
+|---|---|---|
+| `pitch_test.js` | check, portable | each preset pitch within max(2 Hz, 1%) of target from a 220 Hz tone; output RMS within 10% of input; silence → exact silence; no NaN |
+| `gate_test.js` | check, portable | ≤ 1% of 10 ms speaking moments muted (more than 6 dB lost) at mic volume ×1, ×0.5, ×0.25 |
+| `arm_trust_test.py` | check, browser | 11 sequence criteria from §6 (unclear ignored, trusted on 3rd clear frame, one-frame leap held, repeated move accepted on 3rd, hysteresis at .55/.35, giant / low-confidence / far hands rejected, normal hand shown on its 2nd frame) |
+| `voice_test.py` | check, browser | voice on with Teddy; jaw both > .6 and < .45 during the bursts; Robot follows Match character; recorded Chipmunk clip's peak within 3 Hz of 378 Hz |
+| `call_mode_test.py` | check, browser | mic and output pickers populate (output row hidden where `setSinkId` doesn't exist); Call mode hides top bar, dock and panels; Esc restores |
+| `save_test.py` | check, browser | desktop Save downloads a video > 50 KB and a PNG > 10 KB; note names Downloads |
+| `render_test.py` | check + visual review | 6 characters; all 36 renders draw something across the head; screenshots in `tests/out/` for eyes. **Appearance is a human judgment and is not asserted** |
+| `live_tracking_test.py` | smoke check | real MediaPipe face, pose and hand models load and run on a fake camera; with `--expect-hand` a hand reaches the character. **Face tracking is not covered** (§11.1) |
+| `naive_shifter_comparison.js` | diagnostic | none: shows why the simple shifter was dropped (6–100% of energy on target) |
+
+**Mutation-tested:** I broke the code in a scratch copy to confirm the checks catch it. Each of these breaks exits 1:
+- pitch shifted 5% off
+- the old twitchy gate restored
+- arms trusted after 1 frame instead of 3
+- hands shown on their first frame
+
+The unmodified code exits 0.
+
+**Results at handoff (`main` @ `8c83eba`, app code unchanged on this branch): every check passes.**
 - Pitch is exact to ±1 Hz.
 - The gate mutes 0.0% / 0.2% / 0.2% of speech.
-- The recorded chipmunk clip decodes at 377–378 Hz (expected 378).
-- All three MediaPipe models load and run (GPU delegate on SwiftShader).
-- A real thumbs-up photo drives the paw correctly.
+- The Chipmunk clip decodes at 377–378 Hz (target 377.5).
+- All three models load on SwiftShader.
+- A real thumbs-up photo drives the paw.
 
-`live_tracking_test.py`'s `fakeface` argument fakes face freshness so the arm and hand paths run without a face. That's the main blind spot below.
+Two harness bugs turned up while I was adding the assertions, and both are fixed:
+- a single-pixel draw probe misread the robot's dark face screen as "not drawn"
+- MediaPipe's informational logs arrive through `console.error` and were counted as page errors
+
+**What the checks do not cover:** real faces, real phones (including the share-sheet save), iOS, OBS + VB-Cable, and how anything *looks*. That's what §11 is for.
 
 ## 11. Known failures and uncertainty (honest list)
 

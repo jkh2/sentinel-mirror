@@ -1,4 +1,4 @@
-"""Makes the fake mic and camera inputs the browser tests use.
+"""Makes the fake mic and camera inputs the browser checks use (not a test itself).
 talk.wav: speech-like 200 Hz bursts (0.4 s on, 0.2 s off) for the voice tests.
 thumb_up.y4m / pose.y4m: MediaPipe's own sample images as fake camera feeds (needs ffmpeg and internet).
 Run: python3 tests/make_test_media.py"""
