@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Sentinel Mirror</title>
+<style>
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:#1b1426;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff8ee;touch-action:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+button,select,a.btn{background:rgba(30,20,44,.72);color:#fff8ee;border:1px solid rgba(255,214,160,.38);border-radius:12px;padding:8px 12px;font-size:14px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);cursor:pointer;font-family:inherit}
+button:hover,select:hover,a.btn:hover{border-color:#ffd6a0}
+a.btn{display:inline-block;text-decoration:none}
+#top{position:fixed;top:calc(10px + env(safe-area-inset-top));left:10px;right:10px;display:flex;gap:8px;align-items:flex-start;z-index:5;pointer-events:none}
+#top>*{pointer-events:auto}
+#title{font-weight:800;letter-spacing:.08em;font-size:13px;padding:8px 12px;background:rgba(30,20,44,.72);border:1px solid rgba(255,214,160,.25);border-radius:12px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);white-space:nowrap}
+#status{flex:1;font-size:12px;line-height:1.45;padding-top:8px;text-shadow:0 1px 3px rgba(0,0,0,.8);pointer-events:none;min-width:0}
+#topr{display:flex;gap:8px;margin-left:auto}
+#dock{position:fixed;left:0;right:0;bottom:calc(8px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:8px;z-index:5;pointer-events:none}
+#dock>*{pointer-events:auto}
+#actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;padding:0 8px}
+#actions button{padding:7px 11px;font-size:13px}
+#chars{display:flex;gap:8px;overflow-x:auto;max-width:calc(100vw - 16px);padding:4px 6px;scrollbar-width:none}
+#chars::-webkit-scrollbar{display:none}
+.chr{flex:none;width:64px;padding:4px 2px 3px;display:flex;flex-direction:column;align-items:center;gap:1px;border-radius:14px}
+.chr canvas{width:52px;height:52px;display:block}
+.chr span{font-size:11px;opacity:.85}
+.chr.on{border-color:#ffd6a0;background:rgba(255,190,120,.25);box-shadow:0 0 14px rgba(255,190,120,.35)}
+#rec.on{background:rgba(200,40,40,.9);border-color:#ff9a9a;animation:recpulse 1.2s infinite}
+@keyframes recpulse{50%{opacity:.7}}
+#v{position:fixed;right:10px;bottom:calc(150px + env(safe-area-inset-bottom));width:min(26vw,170px);aspect-ratio:3/4;object-fit:cover;border-radius:14px;border:2px solid rgba(255,214,160,.55);box-shadow:0 6px 20px rgba(0,0,0,.4);z-index:4;background:#000;display:none}
+#v.mirror{transform:scaleX(-1)}
+body.inset #v{display:block}
+#hint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:4;font-size:15px;text-align:center;background:rgba(30,20,44,.72);border:1px solid rgba(255,214,160,.3);padding:10px 16px;border-radius:14px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);pointer-events:none;transition:opacity .5s;opacity:0;max-width:min(420px,calc(100vw - 40px));line-height:1.45}
+#hint.show{opacity:1}
+body.noui #actions,body.noui #chars,body.noui #title,body.noui #status,body.noui #setbtn,body.noui #v{display:none!important}
+body.noui #uibtn{opacity:.4}
+#settings{position:fixed;top:calc(56px + env(safe-area-inset-top));right:10px;width:min(320px,calc(100vw - 20px));max-height:calc(100vh - 230px);overflow:auto;z-index:8;background:rgba(30,20,44,.92);border:1px solid rgba(255,214,160,.35);border-radius:16px;padding:12px 14px;display:none;flex-direction:column;gap:11px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+body.setopen #settings{display:flex}
+#settings h3{font-size:12px;letter-spacing:.12em;opacity:.6}
+#settings label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
+#settings select{max-width:170px;padding:6px 8px;font-size:13px}
+#settings input[type=range]{width:140px;accent-color:#ffb870}
+#settings input[type=checkbox]{width:20px;height:20px;accent-color:#ffb870}
+#settings .note{font-size:12px;opacity:.65;line-height:1.45}
+#clip{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(15,10,22,.86);padding:16px}
+#clip.show{display:flex}
+#clip .card{background:#241a33;border:1px solid rgba(255,214,160,.35);border-radius:16px;padding:14px;width:min(420px,100%);max-height:100%;display:flex;flex-direction:column;gap:10px;overflow:auto}
+#clip h2{font-size:16px;letter-spacing:.04em}
+#clipvid,#clipimg{width:100%;max-height:52vh;object-fit:contain;border-radius:10px;background:#000}
+#clipinfo{font-size:12px;opacity:.8;line-height:1.5}
+#clip .row{display:flex;gap:8px;flex-wrap:wrap}
+#clip .row>*{flex:1;text-align:center;white-space:nowrap}
+#start{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px;background:radial-gradient(ellipse at 50% 30%,#4a2c5e 0%,#1b1426 72%)}
+#start h1{font-size:clamp(34px,8vw,64px);letter-spacing:.06em;background:linear-gradient(90deg,#ffd27f,#ff9db0,#b9a2ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+#start p{max-width:520px;opacity:.88;line-height:1.55;font-size:15px}
+#startpals{display:flex;gap:6px;justify-content:center}
+#startpals canvas{width:64px;height:64px}
+#go{font-size:18px;padding:14px 30px;background:linear-gradient(90deg,#ff8a5c,#d15cff);border:none;border-radius:16px;font-weight:700}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<video id="v" playsinline muted autoplay></video>
+
+<div id="top">
+  <div id="title">SENTINEL MIRROR</div>
+  <div id="status"></div>
+  <div id="topr">
+    <button id="setbtn" title="Settings">&#9881;</button>
+    <button id="uibtn" title="Hide the buttons (H)">Hide</button>
+  </div>
+</div>
+
+<div id="hint"></div>
+
+<div id="settings">
+  <h3>SETTINGS</h3>
+  <label>Camera <select id="camsel"></select></label>
+  <label>Track <select id="track">
+    <option value="0">Face only</option>
+    <option value="1">Face + arms</option>
+    <option value="2">Face + arms + hands</option>
+  </select></label>
+  <label>Expressions <input type="range" id="boost" min="60" max="200" value="130"></label>
+  <label>Smoothness <input type="range" id="smooth" min="0" max="100" value="45"></label>
+  <label>Mic sound in clips <input type="checkbox" id="mic" checked></label>
+  <label>Mirror image <input type="checkbox" id="mirror" checked></label>
+  <label>Show tracking points <input type="checkbox" id="debug"></label>
+  <label>Swap face sides <input type="checkbox" id="flip"></label>
+  <div class="note">If your character winks the wrong eye, turn on Swap face sides. If tracking feels slow on your phone, set Track to Face only or Face + arms. Recenter (R) sets your normal head position as "looking straight ahead."</div>
+</div>
+
+<div id="dock">
+  <div id="actions">
+    <button id="bgbtn" title="Background (B)">Background: Scene</button>
+    <button id="insetbtn" title="Show your camera in a small window">Camera window: off</button>
+    <button id="recenter" title="Set straight ahead (R)">Recenter</button>
+    <button id="photo" title="Take a photo (P)">&#128247; Photo</button>
+    <button id="rec" title="Record a clip (V)">&#9679; Rec</button>
+  </div>
+  <div id="chars"></div>
+</div>
+
+<div id="clip">
+  <div class="card">
+    <h2 id="cliptitle">YOUR CLIP</h2>
+    <video id="clipvid" controls playsinline loop></video>
+    <img id="clipimg" alt="Your photo" style="display:none">
+    <div id="clipinfo"></div>
+    <div class="row">
+      <a class="btn" id="clipsave">Save</a>
+      <button id="clipshare" style="display:none">Share</button>
+      <button id="clipdiscard">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="start">
+  <div id="startpals"></div>
+  <h1>MIRROR</h1>
+  <p>Pick a character and it becomes your reflection. It blinks when you blink, smiles when you smile, turns its head with you, and waves when you wave. Nothing leaves your device.</p>
+  <button id="go">Start (allow camera)</button>
+  <p style="font-size:13px;opacity:.6">Face the camera in good light, with your head and shoulders in view. No camera? You can still play: move the pointer to make your character look around, and hold to make it talk.</p>
+</div>
+
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const cv=$('c'), ctx=cv.getContext('2d'), video=$('v');
+let g=ctx; // the context every drawing helper paints into (swapped for thumbnails)
+let W=innerWidth, H=innerHeight, DPR=1;
+const clamp=(x,a=0,b=1)=>x<a?a:x>b?b:x, lerp=(a,b,t)=>a+(b-a)*t, TAU=Math.PI*2;
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const qs=new URLSearchParams(location.search), TEST=qs.has('test');
+
+/* ---------- settings ---------- */
+const PREF='mirror.prefs';
+const prefs=Object.assign({char:0,bg:0,track:2,boost:130,smooth:45,mic:true,mirror:true,debug:false,flip:false,inset:false},(()=>{try{return JSON.parse(localStorage.getItem(PREF))||{};}catch(e){return {};}})());
+const savePrefs=()=>{try{localStorage.setItem(PREF,JSON.stringify(prefs));}catch(e){}};
+
+/* ---------- characters (all original designs) ---------- */
+const CHARS=[
+ {id:'teddy',name:'Teddy',head:'round',headScale:1.0,fur:'#b07a45',ol:'#4a2a12',ears:'round',earIn:'#e2b07c',
+  muzzle:{c:'#ecd0a6',v:.40,rx:.40,ry:.30,dz:.12},nose:{c:'#3a2214',v:.29,rx:.12,ry:.085,dz:.22,shape:'bear'},
+  eyes:{type:'button',u:.33,v:-.04,rx:.085,ry:.105,c:'#1f130b'},brow:{c:'#6b4120',w:.05},
+  mouth:{v:.49,dz:.15,w:.15,h:.24,line:'#3a2214',inside:'#6a2424',philtrum:true},
+  body:'#b07a45',belly:'#ecd0a6',arm:'#a8733f',hand:'#a8733f',blush:'#ff8f8f',bg:['#fff1d6','#f6c995','#f2b27d'],dot:'rgba(255,255,255,.35)'},
+ {id:'fox',name:'Fox',head:'round',headScale:1.0,fur:'#ee7a2d',ol:'#5a260a',ears:'pointy',earIn:'#3b1f12',earTip:'#3b1f12',
+  mask:'#fff4e6',muzzle:{c:'#fff4e6',v:.40,rx:.27,ry:.21,dz:.26},nose:{c:'#241410',v:.30,rx:.085,ry:.06,dz:.40,shape:'oval'},
+  eyes:{type:'anime',u:.33,v:-.07,rx:.12,ry:.095,iris:'#c87814',ir:.07,pupil:'round',lid:'#ee7a2d'},brow:{c:'#7a3810',w:.045},
+  mouth:{v:.50,dz:.22,w:.12,h:.2,line:'#3b1f12',inside:'#6a2020',philtrum:true},
+  body:'#ee7a2d',belly:'#fff4e6',arm:'#e2702a',hand:'#3b1f12',blush:'#ff7f8f',bg:['#ffe9d2','#ffc49a','#f59b7a'],dot:'rgba(255,255,255,.3)'},
+ {id:'kitty',name:'Kitty',head:'round',headScale:.98,fur:'#959fac',ol:'#2f3540',ears:'pointy',earIn:'#f4a9b8',stripes:'#5d6674',
+  pads:'#f4f4f6',nose:{c:'#ef8fa3',v:.30,rx:.065,ry:.05,dz:.16,shape:'tri'},
+  eyes:{type:'anime',u:.34,v:-.05,rx:.13,ry:.13,iris:'#5fbf4a',ir:.1,pupil:'slit',lid:'#959fac'},brow:{c:'#555e6b',w:.04},
+  mouth:{v:.45,dz:.13,w:.1,h:.2,line:'#2f3540',inside:'#7a2632',philtrum:true,cat:true},
+  body:'#959fac',belly:'#f4f4f6',arm:'#8b95a2',hand:'#f4f4f6',blush:'#ff9fb5',bg:['#efe9ff','#cdbff5','#ab9be6'],dot:'rgba(255,255,255,.35)'},
+ {id:'panda',name:'Panda',head:'round',headScale:1.0,fur:'#fbfbf7',ol:'#202022',ears:'round',earOuter:'#1d1d20',
+  patches:'#1d1d20',muzzle:{c:'#ffffff',v:.40,rx:.36,ry:.27,dz:.1,faint:true},nose:{c:'#1d1d20',v:.30,rx:.11,ry:.075,dz:.2,shape:'bear'},
+  eyes:{type:'anime',u:.33,v:.0,rx:.085,ry:.085,iris:'#3a2414',ir:.062,pupil:'round',lid:'#1d1d20'},brow:{c:'#1d1d20',w:.04},
+  mouth:{v:.48,dz:.14,w:.13,h:.22,line:'#1d1d20',inside:'#6a2424',philtrum:true},
+  body:'#fbfbf7',belly:'#ffffff',band:'#1d1d20',arm:'#1d1d20',hand:'#1d1d20',blush:'#ff9fa8',bg:['#eaffea','#bfe8b8','#93d39a'],dot:'rgba(255,255,255,.35)'},
+ {id:'frog',name:'Frog',head:'round',headScale:1.02,fur:'#86d94f',ol:'#2c5e1a',ears:'none',bumps:true,belly:'#f1fbc8',
+  nostrils:'#2c5e1a',spots:'#6cc23e',
+  eyes:{type:'frog',u:.42,v:-.66,rx:.24,ry:.24,iris:'#1d1d1d',lid:'#86d94f'},
+  mouth:{v:.34,dz:.02,w:.27,h:.3,line:'#2c5e1a',inside:'#9c2f4a',wide:true},
+  body:'#86d94f',arm:'#7ccf47',hand:'#7ccf47',blush:'#ff8f9f',bg:['#e0fbf2','#9ee0cf','#5cbcae'],dot:'rgba(255,255,255,.3)'},
+ {id:'robot',name:'Robot',head:'box',headScale:.96,fur:'#c3ccd8',ol:'#283445',ears:'bolts',antenna:true,
+  screen:'#0f1b2b',led:'#62f3ff',
+  eyes:{type:'led',u:.3,v:-.1,rx:.12,ry:.1},
+  mouth:{v:.27,dz:.06,w:.3,h:.18,led:true},
+  body:'#c3ccd8',arm:'#9eabbb',hand:'#9eabbb',joint:'#6b788a',blush:'#ff7fb0',bg:['#1c2440','#22305a','#141a30'],dot:'rgba(98,243,255,.12)',grid:true}
+];
+let charIdx=clamp(prefs.char|0,0,CHARS.length-1);
+
+/* ---------- rig state: T = target from tracking, S = smoothed values we draw ---------- */
+function blankRig(){
+  return {hx:W/2,hy:H*.42,hr:Math.min(W,H)*.15,yaw:0,pitch:0,roll:0,
+    blinkL:0,blinkR:0,wideL:0,wideR:0,squintL:0,squintR:0,lookX:0,lookY:0,
+    browInner:0,browDownL:0,browDownR:0,browOuterL:0,browOuterR:0,
+    jaw:0,smileL:.1,smileR:.1,frownL:0,frownR:0,pucker:0,funnel:0,stretch:0,mouthX:0,puff:0,sneer:0,
+    sA:{x:0,y:0},sB:{x:0,y:0},eA:{x:0,y:0},eB:{x:0,y:0},wA:{x:0,y:0},wB:{x:0,y:0},hand:[null,null]};
+}
+const T=blankRig(), S=blankRig();
+const K={hx:18,hy:18,hr:9,yaw:14,pitch:14,roll:14,blinkL:45,blinkR:45,wideL:20,wideR:20,squintL:20,squintR:20,lookX:22,lookY:22,
+  browInner:20,browDownL:20,browDownR:20,browOuterL:20,browOuterR:20,jaw:26,smileL:18,smileR:18,frownL:18,frownR:18,
+  pucker:18,funnel:18,stretch:18,mouthX:18,puff:16,sneer:16};
+const BODYK=13, HANDK=22;
+let frozen=false; // tests set S directly
+
+/* ---------- tracking state ---------- */
+let faceLm=null, poseLm=null, handLm=null, trackReady=false;
+let camOn=false, camStream=null, camId=null, mirror=prefs.mirror, lastVideoTime=-1, detN=0;
+let lastDetT=0, detInt=33; // how often tracking actually runs on this device, in ms
+const freshFor=ms=>Math.max(ms,detInt*3.5); // slow devices get a longer window before data counts as stale
+let lastFaceT=-1e9, lastPoseT=-1e9, handT=[-1e9,-1e9], lastPointerT=-1e9;
+let calib={yaw:0,pitch:0,n:0,acc:[0,0],want:true};
+let swapVote=0, autoSwap=false;
+let faceDbg=null, poseDbg=null, handDbg=[];
+const pointer={x:W/2,y:H*.4,down:false};
+
+function mapPt(nx,ny){ // normalized video coords -> screen px (object-fit: cover, mirrored like a mirror)
+  const vw=video.videoWidth||1280, vh=video.videoHeight||720;
+  const s=Math.max(W/vw,H/vh), dw=vw*s, dh=vh*s;
+  return {x:(W-dw)/2+(mirror?1-nx:nx)*dw, y:(H-dh)/2+ny*dh, s:dw};
+}
+
+function processFace(res,now){
+  if(!res||!res.faceLandmarks||!res.faceLandmarks.length){ faceDbg=null; return; }
+  const lm=res.faceLandmarks[0];
+  const P=i=>{const m=mapPt(lm[i].x,lm[i].y); return {x:m.x,y:m.y,z:lm[i].z*m.s};};
+  let a=P(234), b=P(454); if(a.x>b.x){const t=a;a=b;b=t;}
+  const vx=b.x-a.x, vy=b.y-a.y, vz=b.z-a.z, faceW=Math.hypot(vx,vy,vz);
+  const top=P(10), chin=P(152);
+  let e1=P(33), e2=P(263); const eSwap=e1.x>e2.x; if(eSwap){const t=e1;e1=e2;e2=t;}
+  const roll=Math.atan2(e2.y-e1.y,e2.x-e1.x);
+  const yawRaw=Math.atan2(vz,Math.hypot(vx,vy));                    // + means facing screen-right
+  const ux=top.x-chin.x, uy=top.y-chin.y, uz=top.z-chin.z;
+  const upIn=ux*Math.sin(roll)-uy*Math.cos(roll);
+  const pitchRaw=Math.atan2(uz,upIn);                                  // + means looking up
+  if(calib.want){ calib.acc[0]+=yawRaw; calib.acc[1]+=pitchRaw; if(++calib.n>=12){ calib.yaw=calib.acc[0]/calib.n; calib.pitch=calib.acc[1]/calib.n; calib.want=false; status('Recentered.',1800);} }
+  T.hx=(a.x+b.x+top.x+chin.x)/4; T.hy=(a.y+b.y+top.y+chin.y)/4;
+  T.hr=faceW*.74;
+  T.yaw=clamp(yawRaw-calib.yaw,-1,1); T.pitch=clamp(pitchRaw-calib.pitch,-.8,.8); T.roll=roll;
+  faceDbg={pts:lm,raw:[yawRaw,pitchRaw]};
+  // which eye is which: compare each eye's openness on screen with the blink scores, so winks land on the right side
+  const ear=(u,d,c1,c2)=>dist(P(u),P(d))/Math.max(1,dist(P(c1),P(c2)));
+  const subjL=clamp((.27-ear(386,374,362,263))/.18), subjR=clamp((.27-ear(159,145,33,133))/.18);
+  // landmark 33 belongs to the subject's right eye; eSwap means it sits on screen-right
+  const gL=eSwap?subjL:subjR, gR=eSwap?subjR:subjL;
+  const bsArr=res.faceBlendshapes&&res.faceBlendshapes[0]&&res.faceBlendshapes[0].categories;
+  if(!bsArr){ lastFaceT=now; return; }
+  const bs={}; for(const c of bsArr) bs[c.categoryName]=c.score;
+  const dG=gL-gR, dB=(bs.eyeBlinkLeft||0)-(bs.eyeBlinkRight||0);
+  if(Math.abs(dG)>.12&&Math.abs(dB)>.15){ swapVote=clamp(swapVote+Math.sign(dG*dB)*.08,-1,1); if(swapVote<-.5) autoSwap=true; else if(swapVote>.5) autoSwap=false; }
+  const sw=autoSwap!==!!prefs.flip; // true: the "Left" scores belong on screen-right
+  const L=n=>bs[n+(sw?'Right':'Left')]||0, R=n=>bs[n+(sw?'Left':'Right')]||0;
+  const B=prefs.boost/100;
+  T.blinkL=clamp((L('eyeBlink')-.3)/.38); T.blinkR=clamp((R('eyeBlink')-.3)/.38);
+  T.wideL=clamp((L('eyeWide')-.08)*2*B); T.wideR=clamp((R('eyeWide')-.08)*2*B);
+  T.squintL=clamp(L('eyeSquint')*1.3); T.squintR=clamp(R('eyeSquint')*1.3);
+  const lx=(L('eyeLookIn')+R('eyeLookOut'))-(L('eyeLookOut')+R('eyeLookIn')); // toward the screen-right side
+  T.lookX=clamp(lx*.9,-1,1);
+  T.lookY=clamp(((bs.eyeLookUpLeft||0)+(bs.eyeLookUpRight||0)-(bs.eyeLookDownLeft||0)-(bs.eyeLookDownRight||0))*.9,-1,1);
+  T.browInner=clamp((bs.browInnerUp||0)*1.4*B);
+  T.browOuterL=clamp(L('browOuterUp')*1.5*B); T.browOuterR=clamp(R('browOuterUp')*1.5*B);
+  T.browDownL=clamp(L('browDown')*1.7*B); T.browDownR=clamp(R('browDown')*1.7*B);
+  T.jaw=clamp(((bs.jawOpen||0)-.04)*1.9*B);
+  T.smileL=clamp(L('mouthSmile')*1.25*B); T.smileR=clamp(R('mouthSmile')*1.25*B);
+  T.frownL=clamp(L('mouthFrown')*2.2*B); T.frownR=clamp(R('mouthFrown')*2.2*B);
+  T.pucker=clamp((bs.mouthPucker||0)*1.5); T.funnel=clamp((bs.mouthFunnel||0)*1.9);
+  T.stretch=clamp((L('mouthStretch')+R('mouthStretch'))*1.6*B);
+  T.mouthX=clamp((R('mouth')-L('mouth'))*1.6,-1,1);
+  T.puff=clamp((bs.cheekPuff||0)*1.9*B);
+  T.sneer=clamp(((bs.noseSneerLeft||0)+(bs.noseSneerRight||0))*1.3*B);
+  lastFaceT=now;
+}
+
+const vis=p=>p.visibility==null?1:p.visibility;
+let poseRaw=null;
+function processPose(res,now){
+  const lm=res&&res.landmarks&&res.landmarks[0];
+  if(!lm){ poseDbg=null; return; }
+  const M=i=>{const m=mapPt(lm[i].x,lm[i].y); return {x:m.x,y:m.y,v:vis(lm[i])};};
+  let L={s:M(11),e:M(13),w:M(15)}, R={s:M(12),e:M(14),w:M(16)};
+  if(L.s.x>R.s.x){const t=L;L=R;R=t;} // A = the arm on screen-left
+  poseRaw={A:L,B:R}; poseDbg=poseRaw; lastPoseT=now;
+}
+function processHands(res,now){
+  handDbg=[];
+  if(!res||!res.landmarks) return;
+  const got=res.landmarks.map(h=>h.map(p=>{const m=mapPt(p.x,p.y); return {x:m.x,y:m.y};}));
+  handDbg=got;
+  const ref=[poseRaw&&now-lastPoseT<freshFor(500)?poseRaw.A.w:{x:T.hx-T.hr*2,y:T.hy+T.hr*3},poseRaw&&now-lastPoseT<freshFor(500)?poseRaw.B.w:{x:T.hx+T.hr*2,y:T.hy+T.hr*3}];
+  const used=[false,false];
+  const order=got.map((h,i)=>({h,i,dA:dist(h[0],ref[0]),dB:dist(h[0],ref[1])})).sort((p,q)=>Math.min(p.dA,p.dB)-Math.min(q.dA,q.dB));
+  for(const o of order){
+    let side=o.dA<=o.dB?0:1; if(used[side]) side=1-side; if(used[side]) continue;
+    used[side]=true; T.hand[side]=o.h; handT[side]=now;
+  }
+}
+
+/* ---------- arm solver (two bones, elbow bends outward and down) ---------- */
+function solveElbow(s,w,l1,l2,side){
+  const d=clamp(dist(s,w),1e-3,l1+l2-1e-3), a=Math.atan2(w.y-s.y,w.x-s.x);
+  const cosA=clamp((l1*l1+d*d-l2*l2)/(2*l1*d),-1,1), off=Math.acos(cosA);
+  const c1={x:s.x+Math.cos(a+off)*l1,y:s.y+Math.sin(a+off)*l1}, c2={x:s.x+Math.cos(a-off)*l1,y:s.y+Math.sin(a-off)*l1};
+  const score=c=>(side?c.x:-c.x)+c.y*.35;
+  return score(c1)>score(c2)?c1:c2;
+}
+
+/* ---------- target update each frame ---------- */
+let nextBlink=0, blinkUntil=0;
+function updateTargets(now){
+  const faceFresh=now-lastFaceT<freshFor(1200);
+  if(!faceFresh){
+    const puppet=!camOn||now-lastPointerT<4000;
+    const cx=W/2, cy=H*.44;
+    T.hx=cx; T.hy=cy+Math.sin(now/1300)*H*.006; T.hr=Math.min(W,H)*(W<H?.2:.15);
+    if(puppet){ T.yaw=clamp((pointer.x-cx)/(W*.45),-1,1)*.75; T.pitch=-clamp((pointer.y-cy)/(H*.45),-1,1)*.5; }
+    else { T.yaw=Math.sin(now/2300)*.22; T.pitch=Math.sin(now/3100)*.08; }
+    T.roll=Math.sin(now/1900)*.05+(puppet?T.yaw*.08:0);
+    T.lookX=puppet?T.yaw*.9:T.yaw*.5; T.lookY=puppet?T.pitch*.9:0;
+    if(now>nextBlink){ blinkUntil=now+140; nextBlink=now+1800+Math.random()*3200; }
+    T.blinkL=T.blinkR=now<blinkUntil?1:0;
+    const talk=pointer.down&&puppet;
+    T.jaw=talk?clamp(.45+.4*Math.sin(now/85)*Math.sin(now/233)):0;
+    T.smileL=T.smileR=talk?.35:.15; T.frownL=T.frownR=0;
+    for(const k of ['wideL','wideR','squintL','squintR','browInner','browDownL','browDownR','browOuterL','browOuterR','pucker','funnel','stretch','mouthX','puff','sneer']) T[k]=0;
+    if(talk) T.browInner=.3;
+  }
+  // body: measured arms when the pose tracker sees them, otherwise a relaxed pose hung from the head
+  const hr=T.hr, ca=Math.cos(T.roll*.35), sa=Math.sin(T.roll*.35);
+  const rot=(dx,dy)=>({x:T.hx+dx*ca-dy*sa,y:T.hy+dx*sa+dy*ca});
+  const synth=[rot(-2.05*hr,2.35*hr),rot(2.05*hr,2.35*hr)];
+  const poseFresh=prefs.track>0&&poseRaw&&now-lastPoseT<freshFor(450)&&faceFresh;
+  const sides=[['sA','eA','wA','A'],['sB','eB','wB','B']];
+  for(let i=0;i<2;i++){
+    const [sk,ek,wk,pk]=sides[i]; const sg=i?1:-1;
+    let s=synth[i];
+    const arm=poseFresh?poseRaw[pk]:null;
+    if(arm&&arm.s.v>.35) s={x:arm.s.x,y:arm.s.y};
+    T[sk]=s;
+    const sw=Math.max(hr*2.2,poseFresh&&poseRaw.A.s.v>.35&&poseRaw.B.s.v>.35?dist(poseRaw.A.s,poseRaw.B.s):hr*4.1);
+    const l1=sw*.72, l2=sw*.66;
+    const hangW={x:s.x+sg*sw*.12,y:s.y+l1+l2*.95};
+    let w=hangW, wv=0;
+    const handFresh=prefs.track>1&&T.hand[i]&&now-handT[i]<freshFor(450)&&faceFresh;
+    if(handFresh){ w=T.hand[i][0]; wv=1; }
+    else if(arm&&arm.w.v>.35){ const t=clamp((arm.w.v-.35)/.3); w={x:lerp(hangW.x,arm.w.x,t),y:lerp(hangW.y,arm.w.y,t)}; wv=t; }
+    if(!faceFresh){ // idle sway
+      w={x:hangW.x+Math.sin(now/1500+i*2)*sw*.04,y:hangW.y};
+    }
+    T[wk]=w;
+    T[ek]=(arm&&arm.e.v>.55&&wv>.5&&!handFresh)?{x:arm.e.x,y:arm.e.y}:solveElbow(s,w,l1,l2,i);
+    if(!handFresh&&now-handT[i]>freshFor(450)) T.hand[i]=null;
+  }
+}
+
+function smooth(dt){
+  const f=Math.pow(2,(.45-prefs.smooth/100)*2.2);
+  for(const k in K){ const a=1-Math.exp(-dt*K[k]*f); S[k]+=(T[k]-S[k])*a; }
+  const ab=1-Math.exp(-dt*BODYK*f);
+  for(const k of ['sA','sB','eA','eB','wA','wB']){ S[k].x+=(T[k].x-S[k].x)*ab; S[k].y+=(T[k].y-S[k].y)*ab; }
+  const ah=1-Math.exp(-dt*HANDK*f);
+  for(let i=0;i<2;i++){
+    const t=T.hand[i];
+    if(!t){ S.hand[i]=null; continue; }
+    if(!S.hand[i]){ S.hand[i]=t.map(p=>({x:p.x,y:p.y})); continue; }
+    for(let j=0;j<21;j++){ S.hand[i][j].x+=(t[j].x-S.hand[i][j].x)*ah; S.hand[i][j].y+=(t[j].y-S.hand[i][j].y)*ah; }
+  }
+}
+
+/* ---------- springs for ears and antenna ---------- */
+const spring={a:0,v:0,lastRoll:0,lastX:0,lastY:0};
+function stepSpring(dt){
+  if(dt<=0) return;
+  const dRoll=(S.roll-spring.lastRoll)/dt, dX=(S.hx-spring.lastX)/dt, dY=(S.hy-spring.lastY)/dt;
+  spring.lastRoll=S.roll; spring.lastX=S.hx; spring.lastY=S.hy;
+  const drive=-dRoll*.9-dX/Math.max(40,S.hr)*.25+Math.abs(dY)/Math.max(40,S.hr)*.05;
+  spring.v+=(-160*spring.a-9*spring.v+drive*30)*dt;
+  spring.a=clamp(spring.a+spring.v*dt,-.5,.5);
+}
+
+/* ---------- drawing helpers ---------- */
+function ell(x,y,rx,ry,rot){ g.beginPath(); g.ellipse(x,y,Math.max(1e-4,Math.abs(rx)),Math.max(1e-4,Math.abs(ry)),rot||0,0,TAU); }
+function fillStroke(fill,stroke,lw){ if(fill){g.fillStyle=fill;g.fill();} if(stroke&&lw>0){g.strokeStyle=stroke;g.lineWidth=lw;g.stroke();} }
+function rrect(x,y,w,h,r){ g.beginPath(); r=Math.min(r,Math.abs(w)/2,Math.abs(h)/2); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
+function shade(hex,amt){ // darken (<0) or lighten (>0) a #rrggbb color
+  const n=parseInt(hex.slice(1),16); let r=n>>16,gg=n>>8&255,b=n&255;
+  const f=c=>Math.round(amt<0?c*(1+amt):c+(255-c)*amt);
+  return 'rgb('+f(r)+','+f(gg)+','+f(b)+')';
+}
+
+// pseudo-3D: features live on a sphere and turn with the head
+let CY=1,SY=0,CP=1,SP=0,RR=1,YAW=0,PITCH=0;
+function setHeadRot(yaw,pitch,r){ YAW=yaw; PITCH=pitch; CY=Math.cos(yaw); SY=Math.sin(yaw); CP=Math.cos(pitch); SP=Math.sin(pitch); RR=r; }
+function P3(u,v,z){ const x1=u*CY+z*SY, z1=-u*SY+z*CY; return {x:x1*RR,y:(v*CP-z1*SP)*RR,z:v*SP+z1*CP}; }
+function surf(u,v,dz){ return P3(u,v,Math.sqrt(Math.max(0,1-u*u-v*v))+(dz||0)); }
+function feat(u,v,dz,fn){ // run fn in a local frame (1 unit = head radius) on the head surface, foreshortened
+  const z=Math.sqrt(Math.max(1e-4,1-u*u-v*v));
+  const p=P3(u,v,z+dz);
+  const sx=Math.cos(Math.atan2(u,z+dz*.6)+YAW), sy=Math.cos(Math.atan2(v,z+dz*.6)-PITCH);
+  if(sx<=.03||sy<=.03) return;
+  g.save(); g.translate(p.x,p.y); g.scale(sx*RR,sy*RR);
+  g.globalAlpha*=clamp(sx*5);
+  fn(sx,sy);
+  g.restore();
+}
+
+/* ---------- head ---------- */
+function headPath(ch,r,puff){
+  if(ch.head==='box') rrect(-r*1.02,-r*.92,r*2.04,r*1.84,r*.38);
+  else ell(0,0,r*(1+puff*.06),r*.95);
+}
+function drawEarsBack(ch,st,r,OL){
+  const sp=spring.a;
+  for(const s of [-1,1]){
+    if(ch.ears==='round'){
+      const c=P3(s*.74,-.66,.12), sx=.72+.28*Math.cos(st.yaw);
+      g.save(); g.translate(c.x,c.y); g.rotate(sp*s*.5+sp*.3); g.scale(sx,1);
+      ell(0,0,r*.34,r*.33); fillStroke(ch.earOuter||ch.fur,ch.ol,OL*1.2);
+      if(ch.earIn){ ell(-s*r*.03,r*.03,r*.2,r*.19); fillStroke(ch.earIn); }
+      g.restore();
+    } else if(ch.ears==='pointy'){
+      const base=P3(s*.56,-.66,.25), rot=sp*s*.6+sp*.4;
+      const pts=[[s*.26,-.8],[s*.84,-1.34],[s*.9,-.36]].map(([u,v])=>P3(u,v,.25));
+      g.save(); g.translate(base.x,base.y); g.rotate(rot); g.translate(-base.x,-base.y);
+      const tri=(k,shrink,dy)=>{
+        const cx=(pts[0].x+pts[1].x+pts[2].x)/3, cy=(pts[0].y+pts[1].y+pts[2].y)/3;
+        const q=pts.map(p=>({x:cx+(p.x-cx)*shrink,y:cy+(p.y-cy)*shrink+dy*r}));
+        g.beginPath(); g.moveTo(q[0].x,q[0].y);
+        g.quadraticCurveTo((q[0].x+q[1].x)/2,(q[0].y+q[1].y)/2-k*r*.02,q[1].x,q[1].y);
+        g.quadraticCurveTo((q[1].x+q[2].x)/2,(q[1].y+q[2].y)/2,q[2].x,q[2].y); g.closePath();
+      };
+      tri(1,1,0); fillStroke(ch.fur,ch.ol,OL*1.2);
+      if(ch.earTip){ g.save(); tri(1,1,0); g.clip(); const t=pts[1]; ell(t.x,t.y,r*.32,r*.32); fillStroke(ch.earTip); g.restore(); tri(1,1,0); fillStroke(null,ch.ol,OL*1.2); }
+      else { tri(1,.55,.06); fillStroke(ch.earIn); }
+      g.restore();
+    } else if(ch.ears==='bolts'){
+      const c=P3(s*1.03,.02,0);
+      if(c.z<0.02){ ell(c.x,c.y,r*.13*Math.abs(Math.sin(st.yaw))+r*.06,r*.2); fillStroke(ch.joint||'#6b788a',ch.ol,OL); }
+    }
+  }
+  if(ch.antenna){
+    const b=P3(0,-.9,0), len=r*.55, a=sp*1.4+st.yaw*.1;
+    const t={x:b.x+Math.sin(a)*len,y:b.y-Math.cos(a)*len};
+    g.lineCap='round'; g.beginPath(); g.moveTo(b.x,b.y); g.lineTo(t.x,t.y);
+    g.strokeStyle=ch.ol; g.lineWidth=r*.07+OL*2; g.stroke(); g.strokeStyle='#8794a6'; g.lineWidth=r*.07; g.stroke();
+    const glow=.4+.6*clamp(st.jaw*1.5+st.smileL*.3);
+    g.save(); g.shadowColor=ch.led; g.shadowBlur=r*.3*glow; ell(t.x,t.y,r*.11,r*.11); fillStroke(ch.led,ch.ol,OL); g.restore();
+  }
+}
+function drawEarsFront(ch,st,r,OL){
+  if(ch.ears!=='bolts') return;
+  for(const s of [-1,1]){
+    const c=P3(s*1.03,.02,0);
+    if(c.z>=0.02){ ell(c.x,c.y,r*.13*Math.abs(Math.sin(st.yaw))+r*.06,r*.2); fillStroke(ch.joint||'#6b788a',ch.ol,OL); }
+  }
+}
+
+function drawEye(ch,st,s){ // s=-1 screen-left eye, +1 screen-right
+  const E=ch.eyes, L=s<0;
+  const blink=L?st.blinkL:st.blinkR, wide=L?st.wideL:st.wideR, squint=L?st.squintL:st.squintR;
+  const smile=(st.smileL+st.smileR)/2;
+  const bDown=L?st.browDownL:st.browDownR;
+  const lookX=st.lookX, lookY=st.lookY;
+  const OLu=Math.max(1.2,RR*.035)/RR;
+  feat(s*E.u,E.v,E.type==='frog'?-.1:.0,()=>{
+    const sc=1+wide*.14, rx=E.rx*sc, ry=E.ry*sc;
+    if(E.type==='button'){
+      const open=clamp(1-blink*1.05-squint*.15-smile*.12+wide*.1,0,1.1);
+      const gx=lookX*rx*.35, gy=-lookY*ry*.3;
+      if(open<.18){
+        g.beginPath();
+        if(smile>.35){ g.moveTo(-rx,ry*.15); g.quadraticCurveTo(0,-ry*.9,rx,ry*.15); }
+        else { g.moveTo(-rx,-ry*.05); g.quadraticCurveTo(0,ry*.55,rx,-ry*.05); }
+        g.lineCap='round'; g.strokeStyle=E.c; g.lineWidth=rx*.42; g.stroke(); return;
+      }
+      ell(gx,gy,rx,ry*open); fillStroke(E.c);
+      ell(gx-rx*.32,gy-ry*open*.38,rx*.3,rx*.3*Math.min(1,open*1.3)); fillStroke('rgba(255,255,255,.9)');
+      ell(gx+rx*.3,gy+ry*open*.3,rx*.13,rx*.13*Math.min(1,open)); fillStroke('rgba(255,255,255,.55)');
+      return;
+    }
+    if(E.type==='led'){
+      const open=clamp(1-blink*1.05-squint*.2+wide*.15,0,1.15);
+      const gx=lookX*rx*.45, gy=-lookY*ry*.4;
+      g.save(); g.shadowColor=ch.led; g.shadowBlur=RR*.25;
+      if(open<.2){
+        g.beginPath();
+        if(smile>.35){ g.moveTo(gx-rx,gy+ry*.25); g.quadraticCurveTo(gx,gy-ry,gx+rx,gy+ry*.25); }
+        else { g.moveTo(gx-rx,gy); g.lineTo(gx+rx,gy); }
+        g.lineCap='round'; g.strokeStyle=ch.led; g.lineWidth=ry*.45; g.stroke();
+      } else {
+        const tilt=(bDown-st.browInner*.6)*.5*(-s);
+        g.translate(gx,gy); g.rotate(-tilt*.6);
+        rrect(-rx,-ry*open,rx*2,ry*2*open,Math.min(rx,ry*open)*.6); fillStroke(ch.led);
+        g.shadowBlur=0; rrect(-rx*.55,-ry*open*.7,rx*.45,ry*open*.45,ry*.15); fillStroke('rgba(255,255,255,.55)');
+      }
+      g.restore();
+      return;
+    }
+    // anime and frog: a lid slides down over the eye; brows tilt the lid for angry or worried looks
+    const tilt=(bDown*.9-st.browInner*.55)*(-s);           // >0 lowers the inner corner
+    const lower=clamp(squint*.25+smile*(E.type==='frog'?.1:.28)-wide*.2,0,.45);
+    const topLidY=x=>-ry*(1+wide*.15)+2*ry*clamp(blink*1.05+squint*.08,0,1.05)+tilt*ry*.55*(x/rx)+Math.max(0,bDown*.18)*ry;
+    if(blink>.86){
+      g.beginPath();
+      if(smile>.35){ g.moveTo(-rx,ry*.2); g.quadraticCurveTo(0,-ry*.9,rx,ry*.2); }
+      else { g.moveTo(-rx,ry*.05); g.quadraticCurveTo(0,ry*.6,rx,ry*.05); }
+      g.lineCap='round'; g.strokeStyle=ch.ol; g.lineWidth=OLu*1.6; g.stroke(); return;
+    }
+    ell(0,0,rx,ry); g.save(); g.clip();
+    g.fillStyle='#fffdf8'; g.fill();
+    const gx=lookX*rx*.42, gy=-lookY*ry*.38, ir=E.ir||rx*.5;
+    if(E.type==='frog'){
+      ell(gx,gy,rx*.5,ry*.5); fillStroke(E.iris);
+      ell(gx-rx*.2,gy-ry*.2,rx*.17,ry*.17); fillStroke('rgba(255,255,255,.92)');
+      ell(gx+rx*.18,gy+ry*.18,rx*.07,ry*.07); fillStroke('rgba(255,255,255,.6)');
+    } else {
+      ell(gx,gy,ir,ir*1.02); fillStroke(E.iris);
+      if(E.pupil==='slit'){ ell(gx,gy,ir*.24*(1+wide*.6),ir*.82); fillStroke('#121212'); }
+      else { ell(gx,gy,ir*.5,ir*.5); fillStroke('#121212'); }
+      ell(gx-ir*.38,gy-ir*.4,ir*.3,ir*.3); fillStroke('rgba(255,255,255,.92)');
+      ell(gx+ir*.35,gy+ir*.35,ir*.12,ir*.12); fillStroke('rgba(255,255,255,.6)');
+    }
+    // lids
+    g.beginPath(); g.moveTo(-rx*1.2,-ry*1.6); g.lineTo(rx*1.2,-ry*1.6); g.lineTo(rx*1.2,topLidY(rx*1.2)); g.lineTo(-rx*1.2,topLidY(-rx*1.2)); g.closePath();
+    fillStroke(E.lid||ch.fur);
+    const lowY=ry*(1-2*lower);
+    if(lower>.02){ g.beginPath(); g.moveTo(-rx*1.2,ry*1.6); g.lineTo(rx*1.2,ry*1.6); g.lineTo(rx*1.2,lowY+ry*.15); g.quadraticCurveTo(0,lowY-ry*.25,-rx*1.2,lowY+ry*.15); g.closePath(); fillStroke(E.lid||ch.fur); }
+    g.restore();
+    // lid line and outline
+    g.beginPath(); g.moveTo(-rx,topLidY(-rx)); g.lineTo(rx,topLidY(rx));
+    g.save(); ell(0,0,rx*1.02,ry*1.02); g.clip();
+    g.beginPath(); g.moveTo(-rx*1.1,topLidY(-rx*1.1)); g.lineTo(rx*1.1,topLidY(rx*1.1)); g.strokeStyle=ch.ol; g.lineWidth=OLu*2.2; g.lineCap='round'; g.stroke();
+    g.restore();
+    ell(0,0,rx,ry); fillStroke(null,ch.ol,OLu*1.1);
+  });
+}
+
+function drawBrow(ch,st,s){
+  const E=ch.eyes, Bw=ch.brow; if(!Bw&&!ch.led) return;
+  const L=s<0;
+  const inner=st.browInner, outer=L?st.browOuterL:st.browOuterR, down=L?st.browDownL:st.browDownR;
+  const y0=E.v-E.ry-(ch.led?.1:.1);
+  feat(s*E.u,y0,.02,()=>{
+    const len=E.rx*1.25;
+    const lift=-(inner*.5+outer*.5)*.09+down*.05;
+    const innerY=lift-inner*.07+down*.07, outerY=lift-outer*.07-down*.02+inner*.02;
+    const xi=-s*len, xo=s*len; // inner end points toward the middle of the face
+    g.beginPath(); g.moveTo(xo,outerY); g.quadraticCurveTo(0,(innerY+outerY)/2-.035,xi,innerY);
+    g.lineCap='round';
+    if(ch.led){ g.save(); g.shadowColor=ch.led; g.shadowBlur=RR*.2; g.strokeStyle=ch.led; g.lineWidth=.045; g.stroke(); g.restore(); }
+    else { g.strokeStyle=Bw.c; g.lineWidth=Bw.w; g.stroke(); }
+  });
+}
+
+function drawMouth(ch,st){
+  const M=ch.mouth;
+  const smile=(st.smileL+st.smileR)/2, frown=(st.frownL+st.frownR)/2;
+  const o=st.jaw;
+  feat(st.mouthX*.04,M.v,M.dz,()=>{
+    const mx=st.mouthX*.05;
+    if(M.led){ // robot: a little equalizer that smiles
+      const n=9, w=M.w*(1+st.stretch*.3-st.pucker*.35);
+      g.save(); g.shadowColor=ch.led; g.shadowBlur=RR*.2; g.fillStyle=ch.led;
+      for(let i=0;i<n;i++){
+        const t=(i/(n-1))*2-1, x=mx+t*w;
+        const curve=(smile*.09-frown*.06)*(1-t*t);
+        const h=.025+o*M.h*(1-t*t*.55)*(.75+.25*Math.sin(performance.now()/70+i*1.7));
+        rrect(x-w/n*.38,curve-h/2+(t*t)*-(smile*.03),w/n*.76,h,.012); g.fill();
+      }
+      g.restore(); return;
+    }
+    const w=M.w*(1+st.stretch*.35+smile*.18-st.pucker*.5-st.funnel*.3)*(1+st.puff*.1);
+    const yL=-st.smileL*.075+st.frownL*.06, yR=-st.smileR*.075+st.frownR*.06;
+    const xL=mx-w, xR=mx+w;
+    const mh=o*M.h+st.funnel*.04;
+    const lw=Math.max(1.2,RR*.03)/RR;
+    g.lineCap='round'; g.lineJoin='round';
+    if(st.funnel+st.pucker>.6&&o<.5){ // an "o" or a kiss
+      const rx=Math.max(.035,M.w*.32), ry=.03+mh*.7;
+      ell(mx,mh*.3,rx,ry);
+      if(mh>.03){ fillStroke(M.inside,M.line,lw); } else fillStroke(null,M.line,lw*1.3);
+      return;
+    }
+    if(mh<.03){
+      g.beginPath(); g.moveTo(xL,yL);
+      const c=smile*.11-frown*.07;
+      if(M.cat){ g.quadraticCurveTo(mx-w*.5,c+.06,mx,0); g.quadraticCurveTo(mx+w*.5,c+.06,xR,yR); }
+      else g.quadraticCurveTo(mx,c+(yL+yR)/2,xR,yR);
+      g.strokeStyle=M.line; g.lineWidth=lw*(M.wide?1.4:1.2); g.stroke();
+      return;
+    }
+    g.beginPath(); g.moveTo(xL,yL);
+    if(M.cat){ g.quadraticCurveTo(mx-w*.5,-.02,mx,-.005); g.quadraticCurveTo(mx+w*.5,-.02,xR,yR); }
+    else g.quadraticCurveTo(mx,-.015+smile*.02,xR,yR);
+    g.quadraticCurveTo(mx,mh*1.25+smile*.04,xL,yL); g.closePath();
+    g.save(); fillStroke(M.inside); g.clip();
+    ell(mx,mh*1.05,w*.62,mh*.5); fillStroke('#ef7f8f');
+    if(!M.wide&&o>.25){ rrect(mx-w*.32,-.02,w*.64,.045,.012); fillStroke('#fffaf2'); }
+    g.restore();
+    g.beginPath(); g.moveTo(xL,yL);
+    if(M.cat){ g.quadraticCurveTo(mx-w*.5,-.02,mx,-.005); g.quadraticCurveTo(mx+w*.5,-.02,xR,yR); }
+    else g.quadraticCurveTo(mx,-.015+smile*.02,xR,yR);
+    g.quadraticCurveTo(mx,mh*1.25+smile*.04,xL,yL); g.closePath();
+    fillStroke(null,M.line,lw);
+  });
+}
+
+function drawHead(ch,st){
+  const r=st.hr*ch.headScale, OL=clamp(r*.035,1.2,6);
+  g.save(); g.translate(st.hx,st.hy); g.rotate(st.roll);
+  setHeadRot(st.yaw,st.pitch,r);
+  drawEarsBack(ch,st,r,OL);
+  // silhouette: head (+ frog eye bumps) drawn as one outlined shape
+  const bumps=ch.bumps?[-1,1].map(s=>{const p=surf(s*ch.eyes.u,ch.eyes.v,-.1); return {x:p.x,y:p.y-r*.04,r:r*.35};}):[];
+  g.lineJoin='round';
+  headPath(ch,r,st.puff); g.strokeStyle=ch.ol; g.lineWidth=OL*2.4; g.stroke();
+  for(const b of bumps){ ell(b.x,b.y,b.r,b.r); g.stroke(); }
+  headPath(ch,r,st.puff); g.fillStyle=ch.fur; g.fill();
+  for(const b of bumps){ ell(b.x,b.y,b.r,b.r); g.fill(); }
+  // shading that moves as the head turns
+  g.save(); headPath(ch,r,st.puff); for(const b of bumps){ g.moveTo(b.x+b.r,b.y); g.arc(b.x,b.y,b.r,0,TAU); } g.clip();
+  const gr=g.createRadialGradient(-r*.35-st.yaw*r*.5,-r*.5+st.pitch*r*.4,r*.08,0,0,r*1.6);
+  gr.addColorStop(0,'rgba(255,255,255,.26)'); gr.addColorStop(.5,'rgba(255,255,255,0)'); gr.addColorStop(1,'rgba(0,0,0,.22)');
+  g.fillStyle=gr; g.fillRect(-r*2,-r*2,r*4,r*4);
+  // face markings, kept inside the head
+  if(ch.mask){ feat(0,.42,.04,()=>{ ell(0,.02,.6,.36); fillStroke(ch.mask); ell(-.42,-.12,.3,.26); fillStroke(ch.mask); ell(.42,-.12,.3,.26); fillStroke(ch.mask); }); }
+  if(ch.patches){ for(const s of [-1,1]) feat(s*.33,.02,0,()=>{ ell(0,0,.165,.235,-s*.55); fillStroke(ch.patches); }); }
+  if(ch.stripes){ feat(0,-.62,0,()=>{ g.lineCap='round'; g.strokeStyle=ch.stripes; for(const [x,l,w] of [[-.16,.16,.05],[0,.22,.06],[.16,.16,.05]]){ g.beginPath(); g.moveTo(x,-.12); g.lineTo(x*.8,-.12+l); g.lineWidth=w; g.stroke(); } });
+    for(const s of [-1,1]) feat(s*.86,.1,0,()=>{ g.lineCap='round'; g.strokeStyle=ch.stripes; g.lineWidth=.045; for(const y of [-.08,.06]){ g.beginPath(); g.moveTo(s*.1,y); g.lineTo(-s*.08,y+.02); g.stroke(); } }); }
+  if(ch.spots){ for(const [u,v,rr] of [[-.55,-.2,.07],[.6,-.1,.055],[-.2,-.45,.05],[.3,-.42,.065],[.7,.3,.05],[-.68,.22,.045]]) feat(u,v,0,()=>{ ell(0,0,rr,rr); fillStroke(ch.spots); }); }
+  if(ch.screen){ feat(0,.06,.02,()=>{ rrect(-.74,-.54,1.48,1.06,.24); fillStroke(ch.screen,ch.ol,.03);
+      const sg=g.createLinearGradient(0,-.54,0,.52); sg.addColorStop(0,'rgba(98,243,255,.12)'); sg.addColorStop(1,'rgba(98,243,255,0)'); g.fillStyle=sg; g.fill(); }); }
+  g.restore();
+  headPath(ch,r,st.puff); fillStroke(null,ch.ol,OL*.35);
+  drawEarsFront(ch,st,r,OL);
+  // cheeks
+  const smile=(st.smileL+st.smileR)/2;
+  if(ch.blush){ for(const s of [-1,1]) feat(s*.56,.3,0,()=>{ g.globalAlpha*=ch.led?clamp(smile*1.4):(.18+smile*.5); if(ch.led){ rrect(-.12,-.04,.24,.08,.04); fillStroke(ch.blush);} else { ell(0,0,.15+st.puff*.06,.09+st.puff*.04); fillStroke(ch.blush);} }); }
+  // eyes and brows
+  drawEye(ch,st,-1); drawEye(ch,st,1);
+  drawBrow(ch,st,-1); drawBrow(ch,st,1);
+  // muzzle, nose, mouth
+  if(ch.muzzle){ const m=ch.muzzle; feat(0,m.v,m.dz,()=>{ ell(0,st.jaw*.04,m.rx*(1+st.puff*.22+(st.smileL+st.smileR)*.04),m.ry+st.jaw*.05); fillStroke(m.c,m.faint?'rgba(0,0,0,.08)':shade(ch.fur,-.25),m.faint?.012:.016); }); }
+  if(ch.pads){ for(const s of [-1,1]) feat(s*.085,.38,.12,()=>{ ell(0,0,.1+st.puff*.03,.085); fillStroke(ch.pads,'rgba(0,0,0,.08)',.01); }); }
+  if(ch.nostrils){ for(const s of [-1,1]) feat(s*.08,.14,.03,()=>{ ell(0,0,.022,.016); fillStroke(ch.nostrils); }); }
+  if(ch.nose){ const n=ch.nose; feat(0,n.v,n.dz,()=>{
+      g.beginPath();
+      if(n.shape==='tri'){ g.moveTo(-n.rx,-n.ry*.6); g.quadraticCurveTo(0,-n.ry*1.1,n.rx,-n.ry*.6); g.quadraticCurveTo(n.rx*.3,n.ry*.9,0,n.ry); g.quadraticCurveTo(-n.rx*.3,n.ry*.9,-n.rx,-n.ry*.6); }
+      else if(n.shape==='bear'){ g.moveTo(-n.rx,-n.ry*.5); g.bezierCurveTo(-n.rx,-n.ry*1.1,n.rx,-n.ry*1.1,n.rx,-n.ry*.5); g.bezierCurveTo(n.rx,n.ry*.3,n.rx*.25,n.ry,0,n.ry); g.bezierCurveTo(-n.rx*.25,n.ry,-n.rx,n.ry*.3,-n.rx,-n.ry*.5); }
+      else g.ellipse(0,0,n.rx,n.ry,0,0,TAU);
+      g.closePath(); fillStroke(n.c);
+      ell(-n.rx*.3,-n.ry*.35,n.rx*.32,n.ry*.22); fillStroke('rgba(255,255,255,.45)');
+      if(st.sneer>.15){ g.globalAlpha*=clamp((st.sneer-.15)*2); g.strokeStyle=shade(ch.fur,-.35); g.lineWidth=.014; for(const s of [-1,1]){ g.beginPath(); g.moveTo(s*n.rx*.5,-n.ry*1.8); g.quadraticCurveTo(s*n.rx*1.1,-n.ry*1.5,s*n.rx*1.3,-n.ry*2.1); g.stroke(); } }
+    });
+    if(ch.mouth.philtrum){ const top=surf(0,n.v+n.ry*.9,n.dz*.7), bot=surf(0,ch.mouth.v-.005,ch.mouth.dz);
+      g.beginPath(); g.moveTo(top.x,top.y); g.lineTo(bot.x+st.mouthX*.04*RR,bot.y); g.strokeStyle=ch.mouth.line; g.lineWidth=Math.max(1,r*.022); g.lineCap='round'; g.stroke(); }
+  }
+  drawMouth(ch,st);
+  if(ch.pads){ // whiskers
+    for(const s of [-1,1]) feat(s*.2,.38,.1,()=>{ g.strokeStyle='rgba(40,44,52,.55)'; g.lineWidth=.012; g.lineCap='round';
+      for(const [dy,ang] of [[-.03,-.14],[.01,0],[.05,.14]]){ g.beginPath(); g.moveTo(s*.02,dy); g.lineTo(s*.42,dy+ang*.42*1.2+(spring.a*.1)); g.stroke(); } }); }
+  g.restore();
+}
+
+/* ---------- body ---------- */
+function limb(pts,w,fill,ol,OL){
+  g.lineCap='round'; g.lineJoin='round';
+  g.beginPath(); g.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++) g.lineTo(pts[i].x,pts[i].y);
+  g.strokeStyle=ol; g.lineWidth=w+OL*2; g.stroke(); g.strokeStyle=fill; g.lineWidth=w; g.stroke();
+}
+function drawTorso(ch,st,r,OL,aw,now){
+  const a=st.sA,b=st.sB, mx=(a.x+b.x)/2, my=(a.y+b.y)/2, ang=Math.atan2(b.y-a.y,b.x-a.x), sw=Math.max(r*1.4,dist(a,b));
+  // neck
+  g.save(); g.translate(mx,my); g.rotate(Math.atan2(st.hx-mx,-(st.hy-my)));
+  const nl=Math.hypot(st.hx-mx,st.hy-my), nw=Math.min(sw*.42,r*.85);
+  rrect(-nw/2,-nl,nw,nl+aw*.5,nw*.3); fillStroke(shade(ch.body,-.12),ch.ol,OL);
+  g.restore();
+  g.save(); g.translate(mx,my); g.rotate(ang);
+  const breath=1+Math.sin(now/900)*.012;
+  const hw=sw/2+aw*.3, bw=sw/2*1.02+aw*.2, top=-aw*.62*breath, down=Math.max(W,H)*1.6;
+  const torso=()=>{ g.beginPath();
+    if(ch.head==='box'){ rrect(-hw,top,hw*2,down,aw*.5); return; }
+    g.moveTo(-hw+aw*.75,top); g.quadraticCurveTo(-hw,top,-hw,top+aw*.8); g.lineTo(-bw,down); g.lineTo(bw,down); g.lineTo(hw,top+aw*.8); g.quadraticCurveTo(hw,top,hw-aw*.75,top); g.closePath(); };
+  torso(); fillStroke(ch.body,ch.ol,OL*1.3);
+  g.save(); torso(); g.clip();
+  const tg=g.createLinearGradient(-hw,0,hw,0); tg.addColorStop(0,'rgba(0,0,0,.14)'); tg.addColorStop(.4,'rgba(255,255,255,.06)'); tg.addColorStop(1,'rgba(0,0,0,.16)');
+  g.fillStyle=tg; g.fillRect(-hw*1.2,top,hw*2.4,down);
+  if(ch.band){ g.fillStyle=ch.band; g.fillRect(-hw*1.2,top-5,hw*2.4,aw*1.25); }
+  if(ch.belly&&ch.head!=='box'){
+    if(ch.id==='fox'){ g.beginPath(); g.moveTo(-sw*.32,top); g.quadraticCurveTo(0,sw*.9,sw*.32,top); g.closePath(); fillStroke(ch.belly); }
+    else { ell(0,sw*.7+aw*.2,sw*.34,sw*.48); fillStroke(ch.belly,'rgba(0,0,0,.1)',OL*.8); }
+  }
+  if(ch.head==='box'){
+    rrect(-sw*.28,sw*.12,sw*.56,sw*.42,sw*.06); fillStroke(ch.screen,ch.ol,OL);
+    const cols=[ch.led,'#ffd166','#ff7fb0'];
+    for(let i=0;i<3;i++){ const on=.4+.6*Math.max(0,Math.sin(now/300+i*2.1)); g.save(); g.globalAlpha=on; g.shadowColor=cols[i]; g.shadowBlur=sw*.05; ell(-sw*.15+i*sw*.15,sw*.25,sw*.045,sw*.045); fillStroke(cols[i]); g.restore(); }
+    g.fillStyle=ch.led; g.globalAlpha=.7; for(let i=0;i<5;i++){ const h=sw*.04+sw*.08*clamp(st.jaw)*Math.abs(Math.sin(now/90+i)); g.fillRect(-sw*.2+i*sw*.085,sw*.47-h,sw*.05,h); } g.globalAlpha=1;
+  }
+  g.restore(); g.restore();
+}
+function drawArm(ch,st,i,aw,OL){
+  const s=i?st.sB:st.sA, e=i?st.eB:st.eA, w=i?st.wB:st.wA;
+  const col=ch.arm||ch.body;
+  limb([s,e],aw,col,ch.ol,OL);
+  limb([e,w],aw*.86,col,ch.ol,OL);
+  if(ch.joint){ ell(e.x,e.y,aw*.36,aw*.36); fillStroke(ch.joint,ch.ol,OL); ell(s.x,s.y,aw*.42,aw*.42); fillStroke(ch.joint,ch.ol,OL); }
+  else { ell(e.x,e.y,aw*.43,aw*.43); fillStroke(col); }
+}
+const FINGERS=[[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,16],[17,18,19,20]];
+function drawHand(ch,st,i,aw,OL){
+  const col=ch.hand||ch.arm||ch.body, h=st.hand[i];
+  const w=i?st.wB:st.wA, e=i?st.eB:st.eA;
+  if(!h){ // a round paw at the end of the arm
+    const a=Math.atan2(w.y-e.y,w.x-e.x), pr=aw*.62;
+    g.save(); g.translate(w.x+Math.cos(a)*pr*.55,w.y+Math.sin(a)*pr*.55); g.rotate(a);
+    ell(0,0,pr*1.05,pr*.92); fillStroke(col,ch.ol,OL);
+    if(ch.joint){ g.strokeStyle=ch.ol; g.lineWidth=OL; g.beginPath(); g.moveTo(pr*.2,-pr*.5); g.lineTo(pr*.9,-pr*.2); g.moveTo(pr*.2,pr*.5); g.lineTo(pr*.9,pr*.2); g.stroke(); }
+    g.restore(); return;
+  }
+  // a chunky glove that copies your fingers
+  const c={x:0,y:0}; for(const k of [0,5,9,13,17]){ c.x+=h[k].x/5; c.y+=h[k].y/5; }
+  const sc=1.12, P=k=>({x:c.x+(h[k].x-c.x)*sc,y:c.y+(h[k].y-c.y)*sc});
+  const size=dist(h[0],h[9]);
+  const fw=clamp(size*.36,aw*.34,aw*.8);
+  const palm=[0,1,5,9,13,17].map(P);
+  const paths=FINGERS.map(f=>[f[0]===1?P(1):P(f[0]),P(f[1]),P(f[2]),P(f[3])]);
+  const drawAll=(wd,color)=>{
+    g.lineCap='round'; g.lineJoin='round'; g.strokeStyle=color; g.fillStyle=color;
+    g.beginPath(); palm.forEach((p,k)=>k?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y)); g.closePath(); g.lineWidth=fw*1.1+wd; g.stroke(); g.fill();
+    paths.forEach((pp,k)=>{ g.beginPath(); pp.forEach((p,j)=>j?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y)); g.lineWidth=(k===0?fw*1.05:k===4?fw*.85:fw)+wd; g.stroke(); });
+  };
+  drawAll(OL*2,ch.ol);
+  drawAll(0,col);
+  // fingertip pads
+  if(!ch.joint){ g.fillStyle=ch.id==='teddy'?'#e6c39a':shade(col.startsWith('#')?col:'#888888',.18); g.globalAlpha=.55; for(const f of FINGERS){ const t=P(f[3]); ell(t.x,t.y,fw*.22,fw*.22); g.fill(); } g.globalAlpha=1; }
+}
+
+// Real shoulders sit far below the face; a cartoon body tucks them up under the head and pulls them in.
+// The shoulders keep your lean, tilt and shrug, and the paws still go exactly where your hands are.
+const D={sA:{x:0,y:0},sB:{x:0,y:0},eA:{x:0,y:0},eB:{x:0,y:0}};
+function cartoonBody(st,r){
+  const hb={x:st.hx-Math.sin(st.roll)*r*.9,y:st.hy+Math.cos(st.roll)*r*.9};
+  const m={x:(st.sA.x+st.sB.x)/2,y:(st.sA.y+st.sB.y)/2};
+  const half=dist(st.sA,st.sB)/2, ang=Math.atan2(st.sB.y-st.sA.y,st.sB.x-st.sA.x);
+  const nh=lerp(half,r*1.3,.6), nm={x:hb.x+(m.x-hb.x)*.3,y:hb.y+(m.y-hb.y)*.3};
+  const ux=Math.cos(ang), uy=Math.sin(ang);
+  D.sA.x=nm.x-ux*nh; D.sA.y=nm.y-uy*nh; D.sB.x=nm.x+ux*nh; D.sB.y=nm.y+uy*nh;
+  D.eA.x=st.eA.x+(D.sA.x-st.sA.x)*.5; D.eA.y=st.eA.y+(D.sA.y-st.sA.y)*.5;
+  D.eB.x=st.eB.x+(D.sB.x-st.sB.x)*.5; D.eB.y=st.eB.y+(D.sB.y-st.sB.y)*.5;
+  return Object.assign(Object.create(st),D,{wA:st.wA,wB:st.wB});
+}
+function drawCharacter(ch,st0,now){
+  const r=st0.hr*ch.headScale, OL=clamp(r*.035,1.2,6);
+  const st=cartoonBody(st0,r);
+  const sw=Math.max(r*1.4,dist(st.sA,st.sB));
+  const aw=clamp(sw*.27,r*.32,r*.95)*(ch.id==='robot'?.85:1);
+  drawTorso(ch,st,r,OL,aw,now);
+  drawArm(ch,st,0,aw,OL); drawArm(ch,st,1,aw,OL);
+  drawHead(ch,st);
+  drawHand(ch,st,0,aw,OL); drawHand(ch,st,1,aw,OL);
+}
+
+/* ---------- backgrounds ---------- */
+const BGS=['Scene','Camera','Green screen'];
+let bgIdx=clamp(prefs.bg|0,0,BGS.length-1), bgCache=null, bgKey='';
+function drawBackground(ch){
+  if(bgIdx===1&&camOn&&video.videoWidth){
+    const vw=video.videoWidth, vh=video.videoHeight, s=Math.max(W/vw,H/vh), dw=vw*s, dh=vh*s;
+    g.save(); if(mirror){ g.translate(W,0); g.scale(-1,1); } g.drawImage(video,(W-dw)/2,(H-dh)/2,dw,dh); g.restore();
+    return;
+  }
+  if(bgIdx===2){ g.fillStyle='#00b140'; g.fillRect(0,0,W,H); return; }
+  const key=ch.id+W+'x'+H+DPR;
+  if(bgKey!==key){
+    bgKey=key; bgCache=document.createElement('canvas'); bgCache.width=W*DPR; bgCache.height=H*DPR;
+    const b=bgCache.getContext('2d'); b.scale(DPR,DPR);
+    const gr=b.createRadialGradient(W/2,H*.38,0,W/2,H*.5,Math.max(W,H)*.8);
+    gr.addColorStop(0,ch.bg[0]); gr.addColorStop(.55,ch.bg[1]); gr.addColorStop(1,ch.bg[2]);
+    b.fillStyle=gr; b.fillRect(0,0,W,H);
+    let seed=7; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+    if(ch.grid){ b.strokeStyle='rgba(98,243,255,.08)'; b.lineWidth=1; const st=Math.max(30,Math.min(W,H)/14); for(let x=(W/2)%st;x<W;x+=st){b.beginPath();b.moveTo(x,0);b.lineTo(x,H);b.stroke();} for(let y=(H/2)%st;y<H;y+=st){b.beginPath();b.moveTo(0,y);b.lineTo(W,y);b.stroke();} }
+    for(let i=0;i<26;i++){ const x=rnd()*W, y=rnd()*H, rr=(.02+rnd()*.07)*Math.min(W,H); b.fillStyle=ch.dot; b.globalAlpha=.25+rnd()*.6; b.beginPath(); b.arc(x,y,rr,0,TAU); b.fill(); }
+    b.globalAlpha=1;
+    const fl=b.createLinearGradient(0,H*.78,0,H); fl.addColorStop(0,'rgba(0,0,0,0)'); fl.addColorStop(1,'rgba(0,0,0,.18)'); b.fillStyle=fl; b.fillRect(0,H*.7,W,H*.3);
+  }
+  g.drawImage(bgCache,0,0,W,H);
+}
+
+/* ---------- tracking overlay (for testing) ---------- */
+function drawDebug(now,fps){
+  g.save();
+  if(faceDbg){ g.fillStyle='rgba(0,255,170,.8)'; for(let i=0;i<faceDbg.pts.length;i+=4){ const p=mapPt(faceDbg.pts[i].x,faceDbg.pts[i].y); g.fillRect(p.x-1,p.y-1,2,2); } }
+  if(poseDbg){ g.strokeStyle='rgba(255,220,0,.9)'; g.lineWidth=3; for(const k of ['A','B']){ const a=poseDbg[k]; g.beginPath(); g.moveTo(a.s.x,a.s.y); g.lineTo(a.e.x,a.e.y); g.lineTo(a.w.x,a.w.y); g.stroke(); } }
+  g.fillStyle='rgba(255,80,200,.9)'; for(const h of handDbg) for(const p of h) g.fillRect(p.x-2,p.y-2,4,4);
+  const deg=x=>Math.round(x*57.3);
+  const lines=['fps '+fps.toFixed(0)+'  face '+(now-lastFaceT<300?'yes':'no')+'  pose '+(now-lastPoseT<300?'yes':'no')+'  hands '+handT.filter(t=>now-t<450).length,
+    'yaw '+deg(S.yaw)+'  pitch '+deg(S.pitch)+'  roll '+deg(S.roll)+(faceDbg?'  (raw '+deg(faceDbg.raw[0])+', '+deg(faceDbg.raw[1])+')':''),
+    'blink L '+S.blinkL.toFixed(2)+' R '+S.blinkR.toFixed(2)+'  look '+S.lookX.toFixed(2)+','+S.lookY.toFixed(2),
+    'jaw '+S.jaw.toFixed(2)+'  smile '+S.smileL.toFixed(2)+'/'+S.smileR.toFixed(2)+'  frown '+((S.frownL+S.frownR)/2).toFixed(2)+'  pucker '+S.pucker.toFixed(2),
+    'brows in '+S.browInner.toFixed(2)+' down '+S.browDownL.toFixed(2)+'/'+S.browDownR.toFixed(2)+'  sides '+(autoSwap?'auto-swapped':'normal')+' ('+swapVote.toFixed(2)+')'];
+  g.font='12px ui-monospace,Menlo,monospace'; g.fillStyle='rgba(0,0,0,.55)'; g.fillRect(8,H*.18,370,lines.length*16+8);
+  g.fillStyle='#d8ffe8'; lines.forEach((l,i)=>g.fillText(l,14,H*.18+18+i*16));
+  g.restore();
+}
+
+/* ---------- main loop ---------- */
+let lastT=performance.now(), fps=30, hintShown='';
+function track(now){
+  if(!camOn||!faceLm||video.readyState<2||video.currentTime===lastVideoTime) return;
+  lastVideoTime=video.currentTime; detN++;
+  if(lastDetT>0) detInt=lerp(detInt,clamp(now-lastDetT,5,2000),.2); lastDetT=now;
+  try{ processFace(faceLm.detectForVideo(video,now),now); }catch(e){}
+  const t=prefs.track|0;
+  if(t>=1&&poseLm&&(t===1||detN%2===0)){ try{ processPose(poseLm.detectForVideo(video,now),now); }catch(e){} }
+  if(t>=2&&handLm&&detN%2===1){ try{ processHands(handLm.detectForVideo(video,now),now); }catch(e){} }
+}
+function setHint(m){ if(m===hintShown) return; hintShown=m; const h=$('hint'); if(m){ h.textContent=m; h.classList.add('show'); } else h.classList.remove('show'); }
+function frame(now){
+  const dt=Math.min(.05,Math.max(0,(now-lastT)/1000)); lastT=now; if(dt>0) fps=lerp(fps,1/dt,.05);
+  if(!frozen){ track(now); updateTargets(now); smooth(dt); }
+  stepSpring(dt);
+  render(now);
+  if(camOn&&trackReady&&now-lastFaceT>1500&&!TEST) setHint('Step into view so your '+CHARS[charIdx].name.toLowerCase()+' can see your face.');
+  else setHint('');
+  if(rec) rec.ctx.drawImage(cv,0,0,rec.w,rec.h);
+  requestAnimationFrame(frame);
+}
+function render(now){
+  g=ctx; g.setTransform(DPR,0,0,DPR,0,0);
+  const ch=CHARS[charIdx];
+  drawBackground(ch);
+  drawCharacter(ch,S,now);
+  if(prefs.debug) drawDebug(now,fps);
+}
+function resize(){
+  DPR=Math.min(2,window.devicePixelRatio||1); W=innerWidth; H=innerHeight;
+  cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
+}
+addEventListener('resize',resize); resize();
+Object.assign(S,blankRig()); Object.assign(T,blankRig());
+
+/* ---------- character picker with live thumbnails ---------- */
+function drawThumb(c,ch,size,yaw){
+  const x=c.getContext('2d'), keep=g; g=x;
+  x.setTransform(1,0,0,1,0,0); x.clearRect(0,0,c.width,c.height);
+  const st=blankRig(); st.hx=size/2; st.hy=size*.56; st.hr=size*.3; st.yaw=yaw||0; st.smileL=st.smileR=.35;
+  drawHead(ch,st); g=keep;
+}
+function buildPicker(){
+  const box=$('chars'); box.innerHTML='';
+  CHARS.forEach((ch,i)=>{
+    const b=document.createElement('button'); b.className='chr'+(i===charIdx?' on':''); b.title=ch.name;
+    const c=document.createElement('canvas'); c.width=c.height=104; drawThumb(c,ch,104,.18);
+    const s=document.createElement('span'); s.textContent=ch.name;
+    b.append(c,s); b.onclick=()=>pickChar(i); box.append(b);
+  });
+  const sp=$('startpals'); sp.innerHTML='';
+  CHARS.forEach((ch,i)=>{ const c=document.createElement('canvas'); c.width=c.height=128; drawThumb(c,ch,128,(i-2.5)*.12); sp.append(c); });
+}
+function pickChar(i){ charIdx=i; prefs.char=i; savePrefs(); [...$('chars').children].forEach((b,k)=>b.classList.toggle('on',k===i)); }
+buildPicker();
+
+/* ---------- camera (same picker as Air Strings, including the fix for cameras that send a blank green picture) ---------- */
+const CAMKEY='mirror.cam';
+const RES_TRIES=[{width:{ideal:1280},height:{ideal:720}},{},{width:{ideal:1920},height:{ideal:1080}},{width:{ideal:640},height:{ideal:480}}];
+let camAdvice='';
+function openStream(deviceId,res){
+  const base=res||RES_TRIES[0];
+  return navigator.mediaDevices.getUserMedia({video:deviceId?{...base,deviceId:{exact:deviceId}}:{...base,facingMode:'user'},audio:false});
+}
+async function pictureIsBlankGreen(){
+  const c=document.createElement('canvas'); c.width=32; c.height=18;
+  const x=c.getContext('2d',{willReadFrequently:true});
+  for(let k=0;k<3;k++){
+    await new Promise(r=>setTimeout(r,250));
+    if(!video.videoWidth) return false;
+    try{ x.drawImage(video,0,0,32,18); }catch(e){ return false; }
+    const d=x.getImageData(0,0,32,18).data; let r=0,gg=0,b=0,g2=0; const n=d.length/4;
+    for(let i=0;i<d.length;i+=4){ r+=d[i]; gg+=d[i+1]; b+=d[i+2]; g2+=d[i+1]*d[i+1]; }
+    r/=n; gg/=n; b/=n; const sd=Math.sqrt(Math.max(0,g2/n-gg*gg));
+    if(!(gg>90&&r<30&&b<30&&sd<8)) return false;
+  }
+  return true;
+}
+function applyMirror(){ video.classList.toggle('mirror',mirror); }
+async function useCamera(deviceId){
+  if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream=null; }
+  camAdvice='';
+  let stream;
+  try{ stream=await openStream(deviceId); }
+  catch(e){ if(deviceId&&(e.name==='OverconstrainedError'||e.name==='NotFoundError')) stream=await openStream(null); else throw e; }
+  camStream=stream; video.srcObject=stream; await video.play();
+  for(let i=1;i<RES_TRIES.length&&await pictureIsBlankGreen();i++){
+    status('This camera is sending a blank green picture. Trying another size ('+i+' of '+(RES_TRIES.length-1)+')…');
+    const id=stream.getVideoTracks()[0].getSettings().deviceId||deviceId;
+    stream.getTracks().forEach(t=>t.stop());
+    try{ stream=await openStream(id,RES_TRIES[i]); }catch(e){ stream=await openStream(id); }
+    camStream=stream; video.srcObject=stream; await video.play();
+    camAdvice=(i===RES_TRIES.length-1&&await pictureIsBlankGreen())?'This camera still sends a blank green picture. In its own app, set it to 1080p and restart it, then pick it again here.':'';
+    status(camAdvice,camAdvice?15000:0);
+  }
+  const st=stream.getVideoTracks()[0].getSettings();
+  camId=st.deviceId||deviceId||null;
+  mirror=st.facingMode==='environment'?false:prefs.mirror; $('mirror').checked=mirror; applyMirror();
+  camOn=true; lastVideoTime=-1; calib.want=true; calib.n=0; calib.acc=[0,0]; autoSwap=!mirror; swapVote=0;
+}
+const camLabel=()=>{ const t=camStream&&camStream.getVideoTracks()[0]; return t?t.label:''; };
+function loadSavedCam(){ try{ const v=localStorage.getItem(CAMKEY); return v?JSON.parse(v):null; }catch(e){ return null; } }
+async function refreshCams(){
+  try{
+    const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
+    const sel=$('camsel'); sel.innerHTML='';
+    devs.forEach((d,i)=>{ const o=document.createElement('option'); o.value=d.deviceId; o.dataset.label=d.label; o.textContent=d.label||('Camera '+(i+1)); if(d.deviceId===camId) o.selected=true; sel.append(o); });
+  }catch(e){}
+}
+$('camsel').onchange=async e=>{
+  const id=e.target.value;
+  try{ await useCamera(id); try{ localStorage.setItem(CAMKEY,JSON.stringify({id:camId,label:camLabel()})); }catch(_){} status('Camera switched.',2500); }
+  catch(err){ status('That camera would not open. '+(err.name||''),6000); }
+  refreshCams();
+};
+
+/* ---------- status ---------- */
+let stTimer=null;
+function status(m,ms){ $('status').textContent=m||''; clearTimeout(stTimer); if(ms) stTimer=setTimeout(()=>{$('status').textContent='';},ms); }
+
+/* ---------- start ---------- */
+async function loadTrackers(){
+  status('Loading face tracking…');
+  const V='0.10.14';
+  const mp=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@'+V+'/+esm');
+  const fileset=await mp.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@'+V+'/wasm');
+  const make=async(Cls,url,extra)=>{
+    const o=d=>Object.assign({baseOptions:{modelAssetPath:url,delegate:d},runningMode:'VIDEO'},extra);
+    try{ return await Cls.createFromOptions(fileset,o('GPU')); }catch(e){ return await Cls.createFromOptions(fileset,o('CPU')); }
+  };
+  faceLm=await make(mp.FaceLandmarker,'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+    {numFaces:1,outputFaceBlendshapes:true,outputFacialTransformationMatrixes:false,minFaceDetectionConfidence:.5,minFacePresenceConfidence:.5,minTrackingConfidence:.5});
+  trackReady=true;
+  status(camAdvice||'Face ready! Make a face. Loading arms and hands…',camAdvice?15000:0);
+  try{
+    poseLm=await make(mp.PoseLandmarker,'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',{numPoses:1,minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5,minTrackingConfidence:.5});
+    handLm=await make(mp.HandLandmarker,'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',{numHands:2,minHandDetectionConfidence:.5,minHandPresenceConfidence:.5,minTrackingConfidence:.5});
+    if(!camAdvice) status('All set. Wave hello!',4000);
+  }catch(e){ status('Arms and hands could not load, but your face works.',8000); }
+}
+function noCamera(msg){
+  status(msg,14000);
+  $('insetbtn').style.display='none';
+}
+$('go').onclick=async()=>{
+  $('start').style.display='none';
+  status('Starting camera…');
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('insecure'),{name:'InsecureContext'});
+    const saved=loadSavedCam();
+    await useCamera(saved&&saved.id);
+    await refreshCams();
+    if(saved&&saved.label&&camLabel()!==saved.label){
+      const o=[...$('camsel').options].find(o=>o.dataset.label===saved.label);
+      if(o){ try{ await useCamera(o.value); }catch(e){ await useCamera(null); } await refreshCams(); }
+    }
+  }catch(e){
+    const tail=' Meanwhile, move the pointer to make your character look around, and hold to make it talk.';
+    const msgs={NotAllowedError:'Camera blocked. Allow camera access for this site (lock icon in the address bar), then reload.'+tail,
+      NotFoundError:'No camera found.'+tail, NotReadableError:'The camera is in use by another app. Close it, then reload.'+tail,
+      InsecureContext:'The camera needs an https page or localhost.'+tail};
+    noCamera(msgs[e.name]||('Camera unavailable.'+tail));
+    return;
+  }
+  try{ await loadTrackers(); }
+  catch(e){ status('Face tracking failed to load. Check your connection and reload. Pointer mode still works.',15000); }
+};
+
+/* ---------- controls ---------- */
+function setBg(i){ bgIdx=i; prefs.bg=i; savePrefs(); $('bgbtn').textContent='Background: '+BGS[i]; }
+$('bgbtn').onclick=()=>{ let i=(bgIdx+1)%BGS.length; if(i===1&&!camOn) i=2; setBg(i); };
+setBg(bgIdx===1?0:bgIdx);
+function setInset(on){ prefs.inset=on; savePrefs(); document.body.classList.toggle('inset',on&&camOn); $('insetbtn').textContent='Camera window: '+(on?'on':'off'); }
+$('insetbtn').onclick=()=>setInset(!prefs.inset);
+setInset(!!prefs.inset);
+video.addEventListener('playing',()=>setInset(!!prefs.inset));
+$('recenter').onclick=()=>{ calib.want=true; calib.n=0; calib.acc=[0,0]; if(!camOn) status('Recenter works once the camera is on.',3000); else status('Look straight at the screen…'); };
+$('setbtn').onclick=()=>document.body.classList.toggle('setopen');
+$('uibtn').onclick=()=>{ const on=document.body.classList.toggle('noui'); $('uibtn').textContent=on?'Show':'Hide'; document.body.classList.remove('setopen'); };
+$('track').value=String(prefs.track); $('track').onchange=e=>{ prefs.track=+e.target.value; savePrefs(); };
+$('boost').value=prefs.boost; $('boost').oninput=e=>{ prefs.boost=+e.target.value; savePrefs(); };
+$('smooth').value=prefs.smooth; $('smooth').oninput=e=>{ prefs.smooth=+e.target.value; savePrefs(); };
+$('mic').checked=prefs.mic; $('mic').onchange=e=>{ prefs.mic=e.target.checked; savePrefs(); };
+$('mirror').checked=mirror; $('mirror').onchange=e=>{ mirror=prefs.mirror=e.target.checked; savePrefs(); applyMirror(); autoSwap=!mirror; swapVote=0; };
+$('debug').checked=prefs.debug; $('debug').onchange=e=>{ prefs.debug=e.target.checked; savePrefs(); };
+$('flip').checked=prefs.flip; $('flip').onchange=e=>{ prefs.flip=e.target.checked; savePrefs(); };
+applyMirror();
+cv.addEventListener('pointermove',e=>{ pointer.x=e.clientX; pointer.y=e.clientY; lastPointerT=performance.now(); });
+cv.addEventListener('pointerdown',e=>{ pointer.down=true; pointer.x=e.clientX; pointer.y=e.clientY; lastPointerT=performance.now(); document.body.classList.remove('setopen'); });
+addEventListener('pointerup',()=>{ pointer.down=false; });
+addEventListener('pointercancel',()=>{ pointer.down=false; });
+addEventListener('keydown',e=>{
+  if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')) return;
+  const k=e.key.toLowerCase();
+  if(k==='b') $('bgbtn').click(); else if(k==='r') $('recenter').click(); else if(k==='p') $('photo').click();
+  else if(k==='v') $('rec').click(); else if(k==='h') $('uibtn').click();
+  else if(k==='arrowright') pickChar((charIdx+1)%CHARS.length); else if(k==='arrowleft') pickChar((charIdx+CHARS.length-1)%CHARS.length);
+  else if(/^[1-9]$/.test(k)&&+k<=CHARS.length) pickChar(+k-1);
+});
+
+/* ---------- photo ---------- */
+let clipURL=null, clipBlob=null, clipName='';
+const stamp=()=>{ const d=new Date(), p=n=>String(n).padStart(2,'0'); return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'-'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds()); };
+$('photo').onclick=()=>{
+  try{ cv.toBlob(b=>{ if(!b){ status('Could not take the photo.',4000); return; } showResult(b,'image/png',0,true); },'image/png'); }
+  catch(e){ status('Could not take the photo.',4000); }
+};
+
+/* ---------- clip recorder (from Air Strings), with your voice from the mic ---------- */
+let rec=null;
+const MIMES=['video/mp4;codecs=avc1.64001F,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+function pickMime(){ if(typeof MediaRecorder==='undefined') return null; for(const m of MIMES){ try{ if(MediaRecorder.isTypeSupported(m)) return m; }catch(e){} } return ''; }
+const fmtTime=sec=>Math.floor(sec/60)+':'+String(Math.floor(sec%60)).padStart(2,'0');
+async function startRec(){
+  if(rec) return;
+  const mime=pickMime();
+  if(mime===null||!cv.captureStream){ status('Recording is not supported in this browser.',6000); return; }
+  const sc=Math.min(1,1280/Math.max(cv.width,cv.height));
+  const w=Math.max(2,Math.round(cv.width*sc/2)*2), h=Math.max(2,Math.round(cv.height*sc/2)*2);
+  const rc=document.createElement('canvas'); rc.width=w; rc.height=h;
+  const rctx=rc.getContext('2d'); rctx.drawImage(cv,0,0,w,h);
+  let micStream=null;
+  if(prefs.mic){ try{ micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }catch(e){ status('No mic, so this clip is silent.',4000); } }
+  try{
+    const stream=rc.captureStream(30);
+    if(micStream) micStream.getAudioTracks().forEach(t=>stream.addTrack(t));
+    const mr=new MediaRecorder(stream,Object.assign({videoBitsPerSecond:5000000,audioBitsPerSecond:128000},mime?{mimeType:mime}:{}));
+    const chunks=[];
+    mr.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
+    const r={mr,stream,micStream,ctx:rctx,w,h,t0:performance.now(),timer:null,chunks,mime:mr.mimeType||mime||'video/webm'};
+    mr.onstop=()=>finishRec(r);
+    mr.start(1000);
+    r.timer=setInterval(()=>{ const sec=(performance.now()-r.t0)/1000; $('rec').textContent='■ '+fmtTime(sec); if(sec>=120) stopRec(); },250);
+    rec=r; $('rec').classList.add('on'); $('rec').textContent='■ 0:00';
+  }catch(e){ if(micStream) micStream.getTracks().forEach(t=>t.stop()); status('Could not start recording: '+(e.message||e.name),7000); }
+}
+function stopRec(){
+  if(!rec) return;
+  const r=rec; rec=null; clearInterval(r.timer);
+  $('rec').classList.remove('on'); $('rec').innerHTML='&#9679; Rec';
+  r.secs=(performance.now()-r.t0)/1000;
+  try{ r.mr.stop(); }catch(e){ finishRec(r); }
+}
+function finishRec(r){
+  r.stream.getTracks().forEach(t=>t.stop()); if(r.micStream) r.micStream.getTracks().forEach(t=>t.stop());
+  if(!r.chunks.length){ status('The clip came out empty. Try again.',6000); return; }
+  const mime=r.mr.mimeType||r.mime;
+  showResult(new Blob(r.chunks,{type:mime}),mime,r.secs||0,false);
+}
+function showResult(blob,mime,secs,isPhoto){
+  clipBlob=blob;
+  const ext=isPhoto?'png':/mp4/.test(mime)?'mp4':'webm';
+  clipName='mirror-'+CHARS[charIdx].id+'-'+stamp()+'.'+ext;
+  if(clipURL) URL.revokeObjectURL(clipURL);
+  clipURL=URL.createObjectURL(blob);
+  $('cliptitle').textContent=isPhoto?'YOUR PHOTO':'YOUR CLIP';
+  $('clipvid').style.display=isPhoto?'none':''; $('clipimg').style.display=isPhoto?'':'none';
+  if(isPhoto){ $('clipimg').src=clipURL; $('clipinfo').textContent='PNG · '+(blob.size/1048576).toFixed(1)+' MB'; }
+  else {
+    $('clipvid').src=clipURL;
+    const h264=/avc1|h264/i.test(mime);
+    $('clipinfo').textContent=ext.toUpperCase()+(h264?' (H.264)':'')+' · '+(blob.size/1048576).toFixed(1)+' MB · '+fmtTime(secs)+
+      (h264?'':'. This browser saved it in a format some apps will not accept. If posting fails, try Share, or convert it to a standard H.264 MP4.');
+  }
+  const a=$('clipsave'); a.href=clipURL; a.download=clipName;
+  let canShare=false;
+  try{ const f=new File([blob],clipName,{type:blob.type}); canShare=!!(navigator.canShare&&navigator.canShare({files:[f]})); }catch(e){}
+  $('clipshare').style.display=canShare?'':'none';
+  $('clip').classList.add('show');
+}
+$('rec').onclick=()=>{ if(rec) stopRec(); else startRec(); };
+$('clipdiscard').onclick=()=>{ $('clip').classList.remove('show'); $('clipvid').pause(); };
+$('clipshare').onclick=async()=>{
+  try{ await navigator.share({files:[new File([clipBlob],clipName,{type:clipBlob.type})],title:'Sentinel Mirror'}); }
+  catch(e){ if(e&&e.name!=='AbortError') status('Sharing did not work here. Use Save instead.',6000); }
+};
+
+/* ---------- test hook: lets a script pose the character without a camera ---------- */
+window.__mirror={S,T,CHARS,pickChar,setBg,
+  pose(o){ frozen=true; const b=blankRig(); for(const k in b) if(k!=='hand') S[k]=typeof b[k]==='object'?{...b[k]}:b[k]; S.hand=[null,null]; Object.assign(S,o||{}); },
+  unfreeze(){ frozen=false; },
+  solveElbow, blankRig, get W(){return W;}, get H(){return H;}};
+if(TEST) $('start').style.display='none';
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
