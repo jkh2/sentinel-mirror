@@ -41,6 +41,10 @@ body.setopen #settings,body.voiceopen #voice{display:flex}
 .panel .sl{display:flex;align-items:center;gap:6px}
 .meter{height:8px;border-radius:5px;background:rgba(255,255,255,.1);overflow:hidden}
 .meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fe3a0,#ffd27f,#ff7f7f);transition:width .06s}
+body.callmode #top,body.callmode #dock,body.callmode #hint,body.callmode .panel,body.callmode #v{display:none!important}
+body.callmode,body.callmode #c{cursor:none}
+#toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:30;background:rgba(30,20,44,.9);border:1px solid rgba(255,214,160,.4);border-radius:12px;padding:9px 14px;font-size:14px;opacity:0;transition:opacity .4s;pointer-events:none;max-width:calc(100vw - 30px);text-align:center}
+#toast.show{opacity:1}
 #voicebtn.lit{border-color:#7fe3a0;box-shadow:0 0 12px rgba(127,227,160,.35)}
 .panel h3{font-size:12px;letter-spacing:.12em;opacity:.6}
 .panel label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
@@ -78,6 +82,7 @@ body.setopen #settings,body.voiceopen #voice{display:flex}
 </div>
 
 <div id="hint"></div>
+<div id="toast"></div>
 
 <div id="settings" class="panel">
   <h3>SETTINGS</h3>
@@ -99,6 +104,8 @@ body.setopen #settings,body.voiceopen #voice{display:flex}
 <div id="voice" class="panel">
   <h3>VOICE</h3>
   <label>Voice changer <input type="checkbox" id="vOn"></label>
+  <label id="vMicRow">Listen to <select id="vMic"><option value="">Default mic</option></select></label>
+  <label>I'm using <select id="vOut"><option value="headphones">Headphones</option><option value="speaker">Speaker</option></select></label>
   <div class="meter" title="Mic level"><i id="vMeter"></i></div>
   <label>Voice <select id="vPreset"></select></label>
   <label>Match character <input type="checkbox" id="vMatch"></label>
@@ -109,8 +116,9 @@ body.setopen #settings,body.voiceopen #voice{display:flex}
   <label>Echo <span class="sl"><input type="range" id="vEcho" min="0" max="100"><span class="val" id="vEchoV"></span></span></label>
   <label>Grit <span class="sl"><input type="range" id="vGrit" min="0" max="100"><span class="val" id="vGritV"></span></span></label>
   <label>Hear it live <input type="checkbox" id="vLive"></label>
+  <label id="vSinkRow">Voice goes to <select id="vSink"><option value="">Default speakers</option></select></label>
   <label>Mouth follows voice <input type="checkbox" id="vLips"></label>
-  <div class="note">Wear headphones for the best sound. Without them, the speaker can feed back into the mic and squeal. If that happens, turn your volume down or switch off Hear it live. Clips still get the funny voice.</div>
+  <div class="note">Wear headphones and set I'm using to Headphones for the cleanest voice. On Speaker, the phone's echo canceller stops squealing, but it can make your voice cut out now and then. Switching off Hear it live also stops squealing. Clips still get the funny voice. For video calls, set Voice goes to a virtual cable (see the README).</div>
 </div>
 
 <div id="dock">
@@ -119,6 +127,7 @@ body.setopen #settings,body.voiceopen #voice{display:flex}
     <button id="insetbtn" title="Show your camera in a small window">Camera window: off</button>
     <button id="recenter" title="Set straight ahead (R)">Recenter</button>
     <button id="voicebtn" title="Funny voices (M)">&#127897; Voice: off</button>
+    <button id="callbtn" title="Hide everything for video calls (C)">&#128250; Call mode</button>
     <button id="photo" title="Take a photo (P)">&#128247; Photo</button>
     <button id="rec" title="Record a clip (V)">&#9679; Rec</button>
   </div>
@@ -290,20 +299,50 @@ function processPose(res,now){
   let L={s:M(11),e:M(13),w:M(15)}, R={s:M(12),e:M(14),w:M(16)};
   if(L.s.x>R.s.x){const t=L;L=R;R=t;} // A = the arm on screen-left
   poseRaw={A:L,B:R}; poseDbg=poseRaw; lastPoseT=now;
+  const sw=(L.s.v>.5&&R.s.v>.5)?Math.max(dist(L.s,R.s),T.hr*2):T.hr*4;
+  [L,R].forEach((arm,i)=>{ trustPoint(armTrust[i],'w',arm.w,sw); trustPoint(armTrust[i],'e',arm.e,sw); });
 }
+// The pose tracker still reports a guess for arms it cannot really see. A wrist or elbow only drives the
+// character after it is seen clearly for 3 frames in a row, and stays trusted until it gets truly unclear
+// (hysteresis, so it does not flicker on and off). A sudden leap across the body is held back unless it repeats.
+const armTrust=[0,1].map(()=>({wOk:false,wN:0,wJ:0,w:null,eOk:false,eN:0,eJ:0,e:null}));
+function trustPoint(st,k,p,sw){
+  const ok=k+'Ok', n=k+'N', j=k+'J';
+  if(!st[ok]){
+    if(p.v>.7){ if(++st[n]>=3){ st[ok]=true; st[k]={x:p.x,y:p.y}; st[j]=0; } }
+    else st[n]=0;
+  } else if(p.v<.45){ st[ok]=false; st[n]=0; }
+  else if(dist(st[k],p)>sw*.8&&st[j]<2){ st[j]++; }
+  else { st[k]={x:p.x,y:p.y}; st[j]=0; }
+}
+function resetArmTrust(){ for(const t of armTrust){ t.wOk=t.eOk=false; t.wN=t.eN=0; } }
 function processHands(res,now){
   handDbg=[];
   if(!res||!res.landmarks) return;
-  const got=res.landmarks.map(h=>h.map(p=>{const m=mapPt(p.x,p.y); return {x:m.x,y:m.y};}));
+  // drop hands that are probably mistakes: low confidence, or a size that does not fit your face
+  const got=[];
+  res.landmarks.forEach((h,k)=>{
+    const hd=res.handednesses&&res.handednesses[k]&&res.handednesses[k][0];
+    if(hd&&hd.score<.7) return;
+    const m=h.map(p=>{const q=mapPt(p.x,p.y); return {x:q.x,y:q.y};});
+    const size=dist(m[0],m[9]);
+    if(size<T.hr*.3||size>T.hr*2.8) return;
+    got.push(m);
+  });
   handDbg=got;
   const ref=[poseRaw&&now-lastPoseT<freshFor(500)?poseRaw.A.w:{x:T.hx-T.hr*2,y:T.hy+T.hr*3},poseRaw&&now-lastPoseT<freshFor(500)?poseRaw.B.w:{x:T.hx+T.hr*2,y:T.hy+T.hr*3}];
   const used=[false,false];
   const order=got.map((h,i)=>({h,i,dA:dist(h[0],ref[0]),dB:dist(h[0],ref[1])})).sort((p,q)=>Math.min(p.dA,p.dB)-Math.min(q.dA,q.dB));
   for(const o of order){
     let side=o.dA<=o.dB?0:1; if(used[side]) side=1-side; if(used[side]) continue;
-    used[side]=true; T.hand[side]=o.h; handT[side]=now;
+    const tw=armTrust[side].wOk?armTrust[side].w:null; // a hand far from a clearly seen wrist is a mistake
+    if(tw&&dist(o.h[0],tw)>T.hr*1.6) continue;
+    used[side]=true;
+    if(++handSeen[side]>=2){ T.hand[side]=o.h; handT[side]=now; }
   }
+  for(let i=0;i<2;i++) if(!used[i]) handSeen[i]=0;
 }
+const handSeen=[0,0];
 
 /* ---------- arm solver (two bones, elbow bends outward and down) ---------- */
 function solveElbow(s,w,l1,l2,side){
@@ -340,12 +379,13 @@ function updateTargets(now){
   const rot=(dx,dy)=>({x:T.hx+dx*ca-dy*sa,y:T.hy+dx*sa+dy*ca});
   const synth=[rot(-2.05*hr,2.35*hr),rot(2.05*hr,2.35*hr)];
   const poseFresh=prefs.track>0&&poseRaw&&now-lastPoseT<freshFor(450)&&faceFresh;
+  if(!poseFresh) resetArmTrust();
   const sides=[['sA','eA','wA','A'],['sB','eB','wB','B']];
   for(let i=0;i<2;i++){
     const [sk,ek,wk,pk]=sides[i]; const sg=i?1:-1;
     let s=synth[i];
     const arm=poseFresh?poseRaw[pk]:null;
-    if(arm&&arm.s.v>.35) s={x:arm.s.x,y:arm.s.y};
+    if(arm&&arm.s.v>.5) s={x:arm.s.x,y:arm.s.y};
     T[sk]=s;
     const sw=Math.max(hr*2.2,poseFresh&&poseRaw.A.s.v>.35&&poseRaw.B.s.v>.35?dist(poseRaw.A.s,poseRaw.B.s):hr*4.1);
     const l1=sw*.72, l2=sw*.66;
@@ -353,12 +393,12 @@ function updateTargets(now){
     let w=hangW, wv=0;
     const handFresh=prefs.track>1&&T.hand[i]&&now-handT[i]<freshFor(450)&&faceFresh;
     if(handFresh){ w=T.hand[i][0]; wv=1; }
-    else if(arm&&arm.w.v>.35){ const t=clamp((arm.w.v-.35)/.3); w={x:lerp(hangW.x,arm.w.x,t),y:lerp(hangW.y,arm.w.y,t)}; wv=t; }
+    else if(arm&&armTrust[i].wOk){ w=armTrust[i].w; wv=1; }
     if(!faceFresh){ // idle sway
       w={x:hangW.x+Math.sin(now/1500+i*2)*sw*.04,y:hangW.y};
     }
     T[wk]=w;
-    T[ek]=(arm&&arm.e.v>.55&&wv>.5&&!handFresh)?{x:arm.e.x,y:arm.e.y}:solveElbow(s,w,l1,l2,i);
+    T[ek]=(arm&&armTrust[i].eOk&&wv>.5&&!handFresh&&dist(armTrust[i].e,s)<l1*1.5)?armTrust[i].e:solveElbow(s,w,l1,l2,i);
     if(!handFresh&&now-handT[i]>freshFor(450)) T.hand[i]=null;
   }
 }
@@ -366,14 +406,17 @@ function updateTargets(now){
 function smooth(dt){
   const f=Math.pow(2,(.45-prefs.smooth/100)*2.2);
   for(const k in K){ const a=1-Math.exp(-dt*K[k]*f); S[k]+=(T[k]-S[k])*a; }
-  const ab=1-Math.exp(-dt*BODYK*f);
-  for(const k of ['sA','sB','eA','eB','wA','wB']){ S[k].x+=(T[k].x-S[k].x)*ab; S[k].y+=(T[k].y-S[k].y)*ab; }
-  const ah=1-Math.exp(-dt*HANDK*f);
+  const unit=Math.max(20,S.hr);
+  for(const k of ['sA','sB','eA','eB','wA','wB']){
+    const d=dist(S[k],T[k]), kk=lerp(5,BODYK*2.2,clamp(d/(unit*1.2)));
+    const ab=1-Math.exp(-dt*kk*f); S[k].x+=(T[k].x-S[k].x)*ab; S[k].y+=(T[k].y-S[k].y)*ab;
+  }
   for(let i=0;i<2;i++){
     const t=T.hand[i];
     if(!t){ S.hand[i]=null; continue; }
     if(!S.hand[i]){ S.hand[i]=t.map(p=>({x:p.x,y:p.y})); continue; }
-    for(let j=0;j<21;j++){ S.hand[i][j].x+=(t[j].x-S.hand[i][j].x)*ah; S.hand[i][j].y+=(t[j].y-S.hand[i][j].y)*ah; }
+    const d=dist(S.hand[i][0],t[0]), kk=lerp(8,HANDK*1.6,clamp(d/(Math.max(20,S.hr)*.8))), ah2=1-Math.exp(-dt*kk*f);
+    for(let j=0;j<21;j++){ S.hand[i][j].x+=(t[j].x-S.hand[i][j].x)*ah2; S.hand[i][j].y+=(t[j].y-S.hand[i][j].y)*ah2; }
   }
 }
 
@@ -950,8 +993,8 @@ async function loadTrackers(){
   trackReady=true;
   status(camAdvice||'Face ready! Make a face. Loading arms and hands…',camAdvice?15000:0);
   try{
-    poseLm=await make(mp.PoseLandmarker,'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',{numPoses:1,minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5,minTrackingConfidence:.5});
-    handLm=await make(mp.HandLandmarker,'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',{numHands:2,minHandDetectionConfidence:.5,minHandPresenceConfidence:.5,minTrackingConfidence:.5});
+    poseLm=await make(mp.PoseLandmarker,'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',{numPoses:1,minPoseDetectionConfidence:.6,minPosePresenceConfidence:.6,minTrackingConfidence:.6});
+    handLm=await make(mp.HandLandmarker,'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',{numHands:2,minHandDetectionConfidence:.65,minHandPresenceConfidence:.6,minTrackingConfidence:.55});
     if(!camAdvice) status('All set. Wave hello!',4000);
   }catch(e){ status('Arms and hands could not load, but your face works.',8000); }
 }
@@ -1132,7 +1175,7 @@ class MirrorShifter extends AudioWorkletProcessor{
     {name:'ring',defaultValue:0,minValue:0,maxValue:1},
     {name:'ringFreq',defaultValue:55,minValue:1,maxValue:2000},
     {name:'wobble',defaultValue:0,minValue:0,maxValue:1},
-    {name:'gate',defaultValue:.006,minValue:0,maxValue:.2}]; }
+    {name:'gate',defaultValue:.0035,minValue:0,maxValue:.2}]; }
   constructor(){
     super();
     const sr=sampleRate;
@@ -1142,7 +1185,8 @@ class MirrorShifter extends AudioWorkletProcessor{
     this.size=1; while(this.size<this.G*4+this.S*4+this.M+16) this.size<<=1;
     this.mask=this.size-1; this.buf=new Float32Array(this.size); this.w=0;
     this.h=[{d:this.base(1)+this.S,age:this.G>>1},{d:this.base(1)+this.S,age:0}];
-    this.rp=0; this.vp=0; this.env=0; this.g=0; this.byp=1;
+    this.rp=0; this.vp=0; this.env=0; this.g=.12; this.byp=1;
+    this.hold=0; this.holdN=Math.round(sr*.35); this.envRel=1/(sr*.08); this.gRel=1/(sr*.15);
   }
   base(r){ return 4+Math.max(0,r-1)*this.G; } // smallest start delay that never reads ahead of the write head
   at(i){ return this.buf[i&this.mask]; }
@@ -1170,8 +1214,10 @@ class MirrorShifter extends AudioWorkletProcessor{
     const h0=this.h[0], h1=this.h[1];
     for(let i=0;i<out.length;i++){
       const x=inp?inp[i]:0, ax=Math.abs(x);
-      this.env+=(ax-this.env)*(ax>this.env?.02:.0007);
-      const open=this.env>gate?1:0; this.g+=(open-this.g)*(open?.02:.0006);
+      // gentle gate: opens instantly, stays open 0.35 s after you stop, then fades to a low floor (never dead silence)
+      this.env+=(ax-this.env)*(ax>this.env?.05:this.envRel);
+      if(this.env>gate) this.hold=this.holdN; else if(this.hold>0) this.hold--;
+      const open=this.hold>0?1:.12; this.g+=(open-this.g)*(open>this.g?.01:this.gRel);
       const xg=x*this.g; this.buf[this.w]=xg;
       const r=pitch*(1+wob*.07*Math.sin(this.vp)); this.vp+=TAU*5.5/sr; if(this.vp>TAU) this.vp-=TAU;
       if(h0.age>=G) this.restart(h0,h1,r);
@@ -1206,6 +1252,7 @@ const VPRESETS={
 };
 const VKEYS=['pitch','tone','robot','wobble','echo','grit'];
 const VP=prefs.voice;
+if(VP.out!=='headphones'&&VP.out!=='speaker') VP.out='speaker';
 if(!VPRESETS[VP.preset]) VP.preset='teddy';
 for(const k of VKEYS) if(VP[k]==null) VP[k]=VPRESETS[VP.preset==='custom'?'teddy':VP.preset][k];
 const voice={ctx:null,on:false,ready:false,n:null,stream:null,src:null,jaw:0,level:0,buf:null,starting:false};
@@ -1266,9 +1313,15 @@ async function voiceOn(){
     if(voice.ctx.state!=='running') await voice.ctx.resume();
     if(!voice.ctx.audioWorklet) throw new Error('noworklet');
     if(!voice.ready) await buildVoiceGraph();
-    voice.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    // The echo canceller only helps when the voice plays out loud through a speaker. With headphones (or with Hear it
+    // live off) it hears the changed voice, mistakes it for an echo of you, and turns your mic down, which cuts you out.
+    const spk=VP.out==='speaker'&&VP.live;
+    const ac={echoCancellation:spk,noiseSuppression:spk,autoGainControl:true};
+    if(VP.mic) ac.deviceId={exact:VP.mic};
+    try{ voice.stream=await navigator.mediaDevices.getUserMedia({audio:ac}); }
+    catch(err){ if(VP.mic&&(err.name==='OverconstrainedError'||err.name==='NotFoundError')){ delete ac.deviceId; VP.mic=''; savePrefs(); voice.stream=await navigator.mediaDevices.getUserMedia({audio:ac}); } else throw err; }
     voice.src=voice.ctx.createMediaStreamSource(voice.stream); voice.src.connect(voice.n.hp);
-    voice.on=true; applyVoice();
+    voice.on=true; applyVoice(); await applySink(); refreshAudioDevices();
     status('Voice on: '+VPRESETS[VP.preset].name+'. Headphones sound best.',5000);
   }catch(e){
     const m={NotAllowedError:'Mic blocked. Allow microphone access for this site, then try again.',NotFoundError:'No microphone found.',NotReadableError:'The mic is in use by another app.'};
@@ -1302,7 +1355,7 @@ function syncVoiceUI(){
   $('vPitchV').textContent=(VP.pitch>0?'+':'')+VP.pitch;
   $('vToneV').textContent=VP.tone<-5?'darker':VP.tone>5?'brighter':'even';
   for(const k of ['robot','wobble','echo','grit']) $('v'+k[0].toUpperCase()+k.slice(1)+'V').textContent=VP[k]+'%';
-  $('vMatch').checked=VP.match; $('vLive').checked=VP.live; $('vLips').checked=VP.lips;
+  $('vMatch').checked=VP.match; $('vLive').checked=VP.live; $('vLips').checked=VP.lips; $('vOut').value=VP.out;
 }
 function loadVoicePreset(id){
   VP.preset=id; const p=VPRESETS[id];
@@ -1310,6 +1363,43 @@ function loadVoicePreset(id){
   savePrefs(); applyVoice(); syncVoiceUI();
 }
 window.voiceMatchChar=()=>{ if(VP.match&&VPRESETS[CHARS[charIdx].id]) loadVoicePreset(CHARS[charIdx].id); };
+// Which mic to listen to, and where the voice comes out. For video calls, the voice goes into a virtual audio
+// cable (VB-Cable on Windows, BlackHole on Mac), and the call app uses the other end of that cable as its mic.
+const CAN_SINK=!!(window.AudioContext&&AudioContext.prototype.setSinkId);
+async function refreshAudioDevices(){
+  try{
+    const devs=await navigator.mediaDevices.enumerateDevices();
+    const fill=(sel,kind,first,cur)=>{ sel.innerHTML=''; const o0=document.createElement('option'); o0.value=''; o0.textContent=first; sel.append(o0);
+      devs.filter(d=>d.kind===kind&&d.deviceId&&d.deviceId!=='default'&&d.deviceId!=='communications').forEach((d,i)=>{ const o=document.createElement('option'); o.value=d.deviceId; o.textContent=d.label||((kind==='audioinput'?'Mic ':'Output ')+(i+1)); sel.append(o); });
+      sel.value=[...sel.options].some(o=>o.value===cur)?cur:''; };
+    fill($('vMic'),'audioinput','Default mic',VP.mic||'');
+    if(CAN_SINK) fill($('vSink'),'audiooutput','Default speakers',VP.sink||'');
+    // a common mix-up: listening to the cable the voice is being sent into
+    const micLabel=($('vMic').selectedOptions[0]||{}).textContent||'';
+    if(/cable|blackhole|virtual/i.test(micLabel)) status('Heads up: "Listen to" is set to a virtual cable. Pick your real mic there.',8000);
+  }catch(e){}
+  $('vSinkRow').style.display=CAN_SINK?'':'none';
+}
+async function applySink(){
+  if(!CAN_SINK||!voice.ctx) return;
+  try{ await voice.ctx.setSinkId(VP.sink||''); }
+  catch(e){ status('Could not send the voice to that output. Using your speakers.',6000); VP.sink=''; savePrefs(); try{ await voice.ctx.setSinkId(''); }catch(_){} }
+}
+let toastT=null;
+function toast(m,ms){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms||2600); }
+function setCallMode(on){
+  document.body.classList.toggle('callmode',on);
+  document.body.classList.remove('setopen','voiceopen');
+  if(on) toast('Call mode. Press Esc or double-click to bring the buttons back.',2400);
+}
+$('callbtn').onclick=()=>setCallMode(true);
+cv.addEventListener('dblclick',()=>{ if(document.body.classList.contains('callmode')) setCallMode(false); });
+addEventListener('keydown',e=>{
+  if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')) return;
+  if(e.key==='Escape') setCallMode(false);
+  else if(e.key==='c'||e.key==='C') setCallMode(!document.body.classList.contains('callmode'));
+});
+
 (function setupVoiceUI(){
   const sel=$('vPreset');
   for(const id in VPRESETS){ const o=document.createElement('option'); o.value=id; o.textContent=VPRESETS[id].name; sel.append(o); }
@@ -1317,8 +1407,12 @@ window.voiceMatchChar=()=>{ if(VP.match&&VPRESETS[CHARS[charIdx].id]) loadVoiceP
   for(const k of VKEYS){ $('v'+k[0].toUpperCase()+k.slice(1)).oninput=e=>{ VP[k]=+e.target.value; VP.preset='custom'; VP.match=false; savePrefs(); applyVoice(); syncVoiceUI(); }; }
   $('vOn').onchange=e=>{ if(e.target.checked) voiceOn(); else voiceOff(); };
   $('vMatch').onchange=e=>{ VP.match=e.target.checked; savePrefs(); if(VP.match) window.voiceMatchChar(); };
-  $('vLive').onchange=e=>{ VP.live=e.target.checked; savePrefs(); applyVoice(); };
+  $('vLive').onchange=async e=>{ VP.live=e.target.checked; savePrefs(); applyVoice(); if(voice.on&&VP.out==='speaker'){ voiceOff(); await voiceOn(); } };
+  $('vOut').onchange=async e=>{ VP.out=e.target.value; savePrefs(); if(voice.on){ voiceOff(); await voiceOn(); } };
   $('vLips').onchange=e=>{ VP.lips=e.target.checked; savePrefs(); };
+  $('vSink').onchange=e=>{ VP.sink=e.target.value; savePrefs(); applySink(); if(VP.sink&&!VP.live){ VP.live=true; savePrefs(); applyVoice(); syncVoiceUI(); } };
+  $('vMic').onchange=async e=>{ VP.mic=e.target.value; savePrefs(); if(voice.on){ voiceOff(); await voiceOn(); } };
+  $('vSinkRow').style.display=CAN_SINK?'':'none';
   $('voicebtn').onclick=()=>{
     document.body.classList.remove('setopen');
     const open=document.body.classList.toggle('voiceopen');
