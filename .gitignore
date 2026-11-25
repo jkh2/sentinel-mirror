@@ -1,0 +1,5 @@
+tests/out/
+tests/*.wav
+tests/*.y4m
+tests/*.jpg
+__pycache__/
