@@ -35,14 +35,19 @@ body.inset #v{display:block}
 #hint.show{opacity:1}
 body.noui #actions,body.noui #chars,body.noui #title,body.noui #status,body.noui #setbtn,body.noui #v{display:none!important}
 body.noui #uibtn{opacity:.4}
-#settings{position:fixed;top:calc(56px + env(safe-area-inset-top));right:10px;width:min(320px,calc(100vw - 20px));max-height:calc(100vh - 230px);overflow:auto;z-index:8;background:rgba(30,20,44,.92);border:1px solid rgba(255,214,160,.35);border-radius:16px;padding:12px 14px;display:none;flex-direction:column;gap:11px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
-body.setopen #settings{display:flex}
-#settings h3{font-size:12px;letter-spacing:.12em;opacity:.6}
-#settings label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
-#settings select{max-width:170px;padding:6px 8px;font-size:13px}
-#settings input[type=range]{width:140px;accent-color:#ffb870}
-#settings input[type=checkbox]{width:20px;height:20px;accent-color:#ffb870}
-#settings .note{font-size:12px;opacity:.65;line-height:1.45}
+.panel{position:fixed;top:calc(56px + env(safe-area-inset-top));right:10px;width:min(320px,calc(100vw - 20px));max-height:calc(100vh - 230px);overflow:auto;z-index:8;background:rgba(30,20,44,.92);border:1px solid rgba(255,214,160,.35);border-radius:16px;padding:12px 14px;display:none;flex-direction:column;gap:11px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+body.setopen #settings,body.voiceopen #voice{display:flex}
+.panel .val{font-size:12px;opacity:.75;min-width:3.2em;text-align:right;font-variant-numeric:tabular-nums}
+.panel .sl{display:flex;align-items:center;gap:6px}
+.meter{height:8px;border-radius:5px;background:rgba(255,255,255,.1);overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fe3a0,#ffd27f,#ff7f7f);transition:width .06s}
+#voicebtn.lit{border-color:#7fe3a0;box-shadow:0 0 12px rgba(127,227,160,.35)}
+.panel h3{font-size:12px;letter-spacing:.12em;opacity:.6}
+.panel label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
+.panel select{max-width:170px;padding:6px 8px;font-size:13px}
+.panel input[type=range]{width:140px;accent-color:#ffb870}
+.panel input[type=checkbox]{width:20px;height:20px;accent-color:#ffb870}
+.panel .note{font-size:12px;opacity:.65;line-height:1.45}
 #clip{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(15,10,22,.86);padding:16px}
 #clip.show{display:flex}
 #clip .card{background:#241a33;border:1px solid rgba(255,214,160,.35);border-radius:16px;padding:14px;width:min(420px,100%);max-height:100%;display:flex;flex-direction:column;gap:10px;overflow:auto}
@@ -74,7 +79,7 @@ body.setopen #settings{display:flex}
 
 <div id="hint"></div>
 
-<div id="settings">
+<div id="settings" class="panel">
   <h3>SETTINGS</h3>
   <label>Camera <select id="camsel"></select></label>
   <label>Track <select id="track">
@@ -91,11 +96,29 @@ body.setopen #settings{display:flex}
   <div class="note">If your character winks the wrong eye, turn on Swap face sides. If tracking feels slow on your phone, set Track to Face only or Face + arms. Recenter (R) sets your normal head position as "looking straight ahead."</div>
 </div>
 
+<div id="voice" class="panel">
+  <h3>VOICE</h3>
+  <label>Voice changer <input type="checkbox" id="vOn"></label>
+  <div class="meter" title="Mic level"><i id="vMeter"></i></div>
+  <label>Voice <select id="vPreset"></select></label>
+  <label>Match character <input type="checkbox" id="vMatch"></label>
+  <label>Pitch <span class="sl"><input type="range" id="vPitch" min="-12" max="12" step="0.5"><span class="val" id="vPitchV"></span></span></label>
+  <label>Tone <span class="sl"><input type="range" id="vTone" min="-100" max="100"><span class="val" id="vToneV"></span></span></label>
+  <label>Robot <span class="sl"><input type="range" id="vRobot" min="0" max="100"><span class="val" id="vRobotV"></span></span></label>
+  <label>Wobble <span class="sl"><input type="range" id="vWobble" min="0" max="100"><span class="val" id="vWobbleV"></span></span></label>
+  <label>Echo <span class="sl"><input type="range" id="vEcho" min="0" max="100"><span class="val" id="vEchoV"></span></span></label>
+  <label>Grit <span class="sl"><input type="range" id="vGrit" min="0" max="100"><span class="val" id="vGritV"></span></span></label>
+  <label>Hear it live <input type="checkbox" id="vLive"></label>
+  <label>Mouth follows voice <input type="checkbox" id="vLips"></label>
+  <div class="note">Wear headphones for the best sound. Without them, the speaker can feed back into the mic and squeal. If that happens, turn your volume down or switch off Hear it live. Clips still get the funny voice.</div>
+</div>
+
 <div id="dock">
   <div id="actions">
     <button id="bgbtn" title="Background (B)">Background: Scene</button>
     <button id="insetbtn" title="Show your camera in a small window">Camera window: off</button>
     <button id="recenter" title="Set straight ahead (R)">Recenter</button>
+    <button id="voicebtn" title="Funny voices (M)">&#127897; Voice: off</button>
     <button id="photo" title="Take a photo (P)">&#128247; Photo</button>
     <button id="rec" title="Record a clip (V)">&#9679; Rec</button>
   </div>
@@ -136,7 +159,7 @@ const qs=new URLSearchParams(location.search), TEST=qs.has('test');
 
 /* ---------- settings ---------- */
 const PREF='mirror.prefs';
-const prefs=Object.assign({char:0,bg:0,track:2,boost:130,smooth:45,mic:true,mirror:true,debug:false,flip:false,inset:false},(()=>{try{return JSON.parse(localStorage.getItem(PREF))||{};}catch(e){return {};}})());
+const prefs=Object.assign({char:0,bg:0,track:2,boost:130,smooth:45,mic:true,mirror:true,debug:false,flip:false,inset:false,voice:{preset:'teddy',match:true,live:true,lips:true}},(()=>{try{return JSON.parse(localStorage.getItem(PREF))||{};}catch(e){return {};}})());
 const savePrefs=()=>{try{localStorage.setItem(PREF,JSON.stringify(prefs));}catch(e){}};
 
 /* ---------- characters (all original designs) ---------- */
@@ -310,6 +333,7 @@ function updateTargets(now){
     for(const k of ['wideL','wideR','squintL','squintR','browInner','browDownL','browDownR','browOuterL','browOuterR','pucker','funnel','stretch','mouthX','puff','sneer']) T[k]=0;
     if(talk) T.browInner=.3;
   }
+  if(voice.on&&prefs.voice.lips) T.jaw=Math.max(T.jaw,voice.jaw*.78); // your voice opens the mouth too, even if the camera misses it
   // body: measured arms when the pose tracker sees them, otherwise a relaxed pose hung from the head
   const hr=T.hr, ca=Math.cos(T.roll*.35), sa=Math.sin(T.roll*.35);
   const rot=(dx,dy)=>({x:T.hx+dx*ca-dy*sa,y:T.hy+dx*sa+dy*ca});
@@ -807,6 +831,7 @@ function frame(now){
   render(now);
   if(camOn&&trackReady&&now-lastFaceT>1500&&!TEST) setHint('Step into view so your '+CHARS[charIdx].name.toLowerCase()+' can see your face.');
   else setHint('');
+  voiceLevel();
   if(rec) rec.ctx.drawImage(cv,0,0,rec.w,rec.h);
   requestAnimationFrame(frame);
 }
@@ -842,7 +867,7 @@ function buildPicker(){
   const sp=$('startpals'); sp.innerHTML='';
   CHARS.forEach((ch,i)=>{ const c=document.createElement('canvas'); c.width=c.height=128; drawThumb(c,ch,128,(i-2.5)*.12); sp.append(c); });
 }
-function pickChar(i){ charIdx=i; prefs.char=i; savePrefs(); [...$('chars').children].forEach((b,k)=>b.classList.toggle('on',k===i)); }
+function pickChar(i){ charIdx=i; prefs.char=i; savePrefs(); if(window.voiceMatchChar) voiceMatchChar(); [...$('chars').children].forEach((b,k)=>b.classList.toggle('on',k===i)); }
 buildPicker();
 
 /* ---------- camera (same picker as Air Strings, including the fix for cameras that send a blank green picture) ---------- */
@@ -966,8 +991,8 @@ $('insetbtn').onclick=()=>setInset(!prefs.inset);
 setInset(!!prefs.inset);
 video.addEventListener('playing',()=>setInset(!!prefs.inset));
 $('recenter').onclick=()=>{ calib.want=true; calib.n=0; calib.acc=[0,0]; if(!camOn) status('Recenter works once the camera is on.',3000); else status('Look straight at the screen…'); };
-$('setbtn').onclick=()=>document.body.classList.toggle('setopen');
-$('uibtn').onclick=()=>{ const on=document.body.classList.toggle('noui'); $('uibtn').textContent=on?'Show':'Hide'; document.body.classList.remove('setopen'); };
+$('setbtn').onclick=()=>{ document.body.classList.remove('voiceopen'); document.body.classList.toggle('setopen'); };
+$('uibtn').onclick=()=>{ const on=document.body.classList.toggle('noui'); $('uibtn').textContent=on?'Show':'Hide'; document.body.classList.remove('setopen','voiceopen'); };
 $('track').value=String(prefs.track); $('track').onchange=e=>{ prefs.track=+e.target.value; savePrefs(); };
 $('boost').value=prefs.boost; $('boost').oninput=e=>{ prefs.boost=+e.target.value; savePrefs(); };
 $('smooth').value=prefs.smooth; $('smooth').oninput=e=>{ prefs.smooth=+e.target.value; savePrefs(); };
@@ -977,14 +1002,14 @@ $('debug').checked=prefs.debug; $('debug').onchange=e=>{ prefs.debug=e.target.ch
 $('flip').checked=prefs.flip; $('flip').onchange=e=>{ prefs.flip=e.target.checked; savePrefs(); };
 applyMirror();
 cv.addEventListener('pointermove',e=>{ pointer.x=e.clientX; pointer.y=e.clientY; lastPointerT=performance.now(); });
-cv.addEventListener('pointerdown',e=>{ pointer.down=true; pointer.x=e.clientX; pointer.y=e.clientY; lastPointerT=performance.now(); document.body.classList.remove('setopen'); });
+cv.addEventListener('pointerdown',e=>{ pointer.down=true; pointer.x=e.clientX; pointer.y=e.clientY; lastPointerT=performance.now(); document.body.classList.remove('setopen','voiceopen'); });
 addEventListener('pointerup',()=>{ pointer.down=false; });
 addEventListener('pointercancel',()=>{ pointer.down=false; });
 addEventListener('keydown',e=>{
   if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='SELECT')) return;
   const k=e.key.toLowerCase();
   if(k==='b') $('bgbtn').click(); else if(k==='r') $('recenter').click(); else if(k==='p') $('photo').click();
-  else if(k==='v') $('rec').click(); else if(k==='h') $('uibtn').click();
+  else if(k==='v') $('rec').click(); else if(k==='m') toggleVoice(); else if(k==='h') $('uibtn').click();
   else if(k==='arrowright') pickChar((charIdx+1)%CHARS.length); else if(k==='arrowleft') pickChar((charIdx+CHARS.length-1)%CHARS.length);
   else if(/^[1-9]$/.test(k)&&+k<=CHARS.length) pickChar(+k-1);
 });
@@ -1011,10 +1036,12 @@ async function startRec(){
   const rc=document.createElement('canvas'); rc.width=w; rc.height=h;
   const rctx=rc.getContext('2d'); rctx.drawImage(cv,0,0,w,h);
   let micStream=null;
-  if(prefs.mic){ try{ micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }catch(e){ status('No mic, so this clip is silent.',4000); } }
+  if(voice.on){ /* the funny voice goes into the clip */ }
+  else if(prefs.mic){ try{ micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}}); }catch(e){ status('No mic, so this clip is silent.',4000); } }
   try{
     const stream=rc.captureStream(30);
-    if(micStream) micStream.getAudioTracks().forEach(t=>stream.addTrack(t));
+    if(voice.on) voice.n.rec.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
+    else if(micStream) micStream.getAudioTracks().forEach(t=>stream.addTrack(t));
     const mr=new MediaRecorder(stream,Object.assign({videoBitsPerSecond:5000000,audioBitsPerSecond:128000},mime?{mimeType:mime}:{}));
     const chunks=[];
     mr.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
@@ -1033,7 +1060,7 @@ function stopRec(){
   try{ r.mr.stop(); }catch(e){ finishRec(r); }
 }
 function finishRec(r){
-  r.stream.getTracks().forEach(t=>t.stop()); if(r.micStream) r.micStream.getTracks().forEach(t=>t.stop());
+  r.stream.getVideoTracks().forEach(t=>t.stop()); if(r.micStream) r.micStream.getTracks().forEach(t=>t.stop());
   if(!r.chunks.length){ status('The clip came out empty. Try again.',6000); return; }
   const mime=r.mr.mimeType||r.mime;
   showResult(new Blob(r.chunks,{type:mime}),mime,r.secs||0,false);
@@ -1066,8 +1093,217 @@ $('clipshare').onclick=async()=>{
   catch(e){ if(e&&e.name!=='AbortError') status('Sharing did not work here. Use Save instead.',6000); }
 };
 
+/* ---------- voice changer ---------- */
+// The pitch shifter runs in an AudioWorklet. Two read heads play back your recent voice at a faster or slower speed,
+// each living 40 ms and overlapping the other by half, crossfaded so they always sum to one. Each time a head starts over,
+// it searches for the spot where its waveform lines up with the head already playing (WSOLA), so splices do not cancel
+// out and the voice stays clean instead of warbly. The worklet also does the robot ring modulator, the wobble (vibrato)
+// and a soft noise gate, so room hiss is not turned into a funny voice too.
+const SHIFTER_SRC=`
+class MirrorShifter extends AudioWorkletProcessor{
+  static get parameterDescriptors(){ return [
+    {name:'pitch',defaultValue:1,minValue:.25,maxValue:4},
+    {name:'ring',defaultValue:0,minValue:0,maxValue:1},
+    {name:'ringFreq',defaultValue:55,minValue:1,maxValue:2000},
+    {name:'wobble',defaultValue:0,minValue:0,maxValue:1},
+    {name:'gate',defaultValue:.006,minValue:0,maxValue:.2}]; }
+  constructor(){
+    super();
+    const sr=sampleRate;
+    this.G=Math.round(sr*.04);            // grain length: each read head lives 40 ms, two heads overlap by half
+    this.S=Math.round(sr*.0067);          // search range: one period of an 75 Hz voice
+    this.M=Math.round(sr*.008);           // how much waveform to compare when lining up a splice
+    this.size=1; while(this.size<this.G*4+this.S*4+this.M+16) this.size<<=1;
+    this.mask=this.size-1; this.buf=new Float32Array(this.size); this.w=0;
+    this.h=[{d:this.base(1)+this.S,age:this.G>>1},{d:this.base(1)+this.S,age:0}];
+    this.rp=0; this.vp=0; this.env=0; this.g=0; this.byp=1;
+  }
+  base(r){ return 4+Math.max(0,r-1)*this.G; } // smallest start delay that never reads ahead of the write head
+  at(i){ return this.buf[i&this.mask]; }
+  read(d){ const p=this.w-d, i=Math.floor(p), f=p-i, a=this.buf[i&this.mask], b=this.buf[(i+1)&this.mask]; return a+(b-a)*f; }
+  restart(h,o,r){
+    // pick the start delay whose recent waveform best matches what the other head is playing right now
+    const b=this.base(Math.max(r,1)), S=this.S, M=this.M, w=this.w, od=Math.round(o.d);
+    let best=-1e9, bc=b+S;
+    for(let pass=0;pass<2;pass++){
+      const lo=pass?Math.max(b,bc-2):b, hi=pass?bc+2:b+2*S, st=pass?1:3;
+      for(let c=lo;c<=hi;c+=st){
+        let xy=0,yy=1e-9;
+        for(let k=0;k<M;k+=2){ const x=this.at(w-od-k), y=this.at(w-c-k); xy+=x*y; yy+=y*y; }
+        const sc=xy/Math.sqrt(yy);
+        if(sc>best){ best=sc; bc=c; }
+      }
+    }
+    h.d=bc; h.age=0;
+  }
+  process(ins,outs,P){
+    const inp=ins[0]&&ins[0][0], out=outs[0]&&outs[0][0]; if(!out) return true;
+    const sr=sampleRate, TAU=6.283185307, G=this.G;
+    const pitch=P.pitch[0], ring=P.ring[0], rf=P.ringFreq[0], wob=P.wobble[0], gate=P.gate[0];
+    const bypT=(Math.abs(pitch-1)<.001&&wob<.001)?1:0;
+    const h0=this.h[0], h1=this.h[1];
+    for(let i=0;i<out.length;i++){
+      const x=inp?inp[i]:0, ax=Math.abs(x);
+      this.env+=(ax-this.env)*(ax>this.env?.02:.0007);
+      const open=this.env>gate?1:0; this.g+=(open-this.g)*(open?.02:.0006);
+      const xg=x*this.g; this.buf[this.w]=xg;
+      const r=pitch*(1+wob*.07*Math.sin(this.vp)); this.vp+=TAU*5.5/sr; if(this.vp>TAU) this.vp-=TAU;
+      if(h0.age>=G) this.restart(h0,h1,r);
+      if(h1.age>=G) this.restart(h1,h0,r);
+      const s0=Math.sin(Math.PI*h0.age/G), s1=Math.sin(Math.PI*h1.age/G);
+      const sh=this.read(h0.d)*s0*s0+this.read(h1.d)*s1*s1;
+      h0.d=Math.max(2,h0.d+1-r); h1.d=Math.max(2,h1.d+1-r); h0.age++; h1.age++;
+      this.byp+=(bypT-this.byp)*.002;
+      let y=sh+(xg-sh)*this.byp;
+      if(ring>0){ y=y*(1-ring)+y*Math.sin(this.rp)*ring*1.5; this.rp+=TAU*rf/sr; if(this.rp>TAU) this.rp-=TAU; }
+      out[i]=y; this.w=(this.w+1)&this.mask;
+    }
+    return true;
+  }
+}
+registerProcessor('mirror-shifter',MirrorShifter);`;
+
+const VPRESETS={
+  normal:  {name:'Normal (my own voice)',pitch:0,tone:0,robot:0,wobble:0,echo:0,grit:0},
+  teddy:   {name:'Teddy (warm & sweet)',pitch:3.5,tone:-15,robot:0,wobble:0,echo:0,grit:0},
+  fox:     {name:'Fox (quick & bright)',pitch:5,tone:30,robot:0,wobble:0,echo:0,grit:5},
+  kitty:   {name:'Kitty (tiny)',pitch:8,tone:35,robot:0,wobble:10,echo:0,grit:0},
+  panda:   {name:'Panda (big & gentle)',pitch:-4,tone:-35,robot:0,wobble:0,echo:10,grit:0},
+  frog:    {name:'Frog (croaky)',pitch:-5.5,tone:-10,robot:0,wobble:55,echo:0,grit:30},
+  robot:   {name:'Robot',pitch:-1,tone:15,robot:80,wobble:0,echo:0,grit:10},
+  chipmunk:{name:'Chipmunk',pitch:11,tone:40,robot:0,wobble:0,echo:0,grit:0},
+  giant:   {name:'Giant',pitch:-10,tone:-50,robot:0,wobble:0,echo:25,grit:15},
+  alien:   {name:'Alien',pitch:4,tone:20,robot:35,wobble:85,echo:15,grit:0},
+  radio:   {name:'Old radio',pitch:0,tone:30,robot:0,wobble:0,echo:0,grit:45,band:true},
+  cave:    {name:'Echo cave',pitch:-2,tone:-10,robot:0,wobble:0,echo:70,grit:0},
+  custom:  {name:'Custom'}
+};
+const VKEYS=['pitch','tone','robot','wobble','echo','grit'];
+const VP=prefs.voice;
+if(!VPRESETS[VP.preset]) VP.preset='teddy';
+for(const k of VKEYS) if(VP[k]==null) VP[k]=VPRESETS[VP.preset==='custom'?'teddy':VP.preset][k];
+const voice={ctx:null,on:false,ready:false,n:null,stream:null,src:null,jaw:0,level:0,buf:null,starting:false};
+
+function gritCurve(amt){
+  const k=1+amt*28, n=1024, c=new Float32Array(n), d=Math.tanh(k);
+  for(let i=0;i<n;i++){ const x=i/(n-1)*2-1; c[i]=Math.tanh(k*x)/d; }
+  return c;
+}
+async function buildVoiceGraph(){
+  const c=voice.ctx;
+  const url=URL.createObjectURL(new Blob([SHIFTER_SRC],{type:'application/javascript'}));
+  try{ await c.audioWorklet.addModule(url); } finally { URL.revokeObjectURL(url); }
+  const n={};
+  const bq=(type,f,q,gain)=>{ const b=c.createBiquadFilter(); b.type=type; b.frequency.value=f; if(q!=null) b.Q.value=q; if(gain!=null) b.gain.value=gain; return b; };
+  const gn=v=>{ const g=c.createGain(); g.gain.value=v; return g; };
+  n.hp=bq('highpass',75,.7);
+  n.shift=new AudioWorkletNode(c,'mirror-shifter',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1]});
+  n.low=bq('lowshelf',320,null,0); n.high=bq('highshelf',2800,null,0);
+  n.bandHP=bq('highpass',20,.7); n.bandLP=bq('lowpass',20000,.7);
+  n.shaper=c.createWaveShaper(); n.shaper.oversample='2x';
+  n.dry=gn(1); n.sum=gn(1);
+  n.comb=c.createDelay(.05); n.combFb=gn(0); n.combWet=gn(0);
+  n.echo=c.createDelay(1.5); n.echoFb=gn(0); n.echoWet=gn(0);
+  n.comp=c.createDynamicsCompressor(); n.comp.threshold.value=-20; n.comp.knee.value=10; n.comp.ratio.value=10; n.comp.attack.value=.003; n.comp.release.value=.2;
+  n.out=gn(1.6); n.live=gn(1); n.rec=c.createMediaStreamDestination();
+  n.an=c.createAnalyser(); n.an.fftSize=1024;
+  n.hp.connect(n.an);
+  n.hp.connect(n.shift); n.shift.connect(n.low); n.low.connect(n.high); n.high.connect(n.bandHP); n.bandHP.connect(n.bandLP); n.bandLP.connect(n.shaper);
+  n.shaper.connect(n.dry); n.dry.connect(n.sum);
+  n.shaper.connect(n.comb); n.comb.connect(n.combFb); n.combFb.connect(n.comb); n.comb.connect(n.combWet); n.combWet.connect(n.sum);
+  n.shaper.connect(n.echo); n.echo.connect(n.echoFb); n.echoFb.connect(n.echo); n.echo.connect(n.echoWet); n.echoWet.connect(n.sum);
+  n.sum.connect(n.comp); n.comp.connect(n.out); n.out.connect(n.live); n.live.connect(c.destination); n.out.connect(n.rec);
+  voice.n=n; voice.buf=new Float32Array(n.an.fftSize); voice.ready=true;
+}
+function applyVoice(){
+  if(!voice.ready) return;
+  const n=voice.n, c=voice.ctx, t=c.currentTime, set=(p,v)=>p.setTargetAtTime(v,t,.03);
+  const base=VPRESETS[VP.preset]||{};
+  const robot=VP.robot/100, echo=VP.echo/100, grit=VP.grit/100, tone=VP.tone/100;
+  set(n.shift.parameters.get('pitch'),Math.pow(2,VP.pitch/12));
+  set(n.shift.parameters.get('ring'),robot*.85);
+  set(n.shift.parameters.get('wobble'),VP.wobble/100);
+  set(n.low.gain,-tone*10); set(n.high.gain,tone*10);
+  const radio=!!(base.band||VP.band);
+  set(n.bandHP.frequency,radio?450:20); set(n.bandLP.frequency,radio?3200:20000);
+  n.shaper.curve=grit>0.01?gritCurve(grit):null;
+  n.comb.delayTime.value=.011; set(n.combFb.gain,robot*.55); set(n.combWet.gain,robot*.5);
+  n.echo.delayTime.value=.26+echo*.12; set(n.echoFb.gain,echo*.5); set(n.echoWet.gain,echo*.6);
+  set(n.dry.gain,1-grit*.25);
+  set(n.live.gain,VP.live?1:0);
+}
+async function voiceOn(){
+  if(voice.on||voice.starting) return;
+  voice.starting=true;
+  try{
+    if(!voice.ctx){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) throw new Error('nosound'); voice.ctx=new AC({latencyHint:'interactive'}); }
+    if(voice.ctx.state!=='running') await voice.ctx.resume();
+    if(!voice.ctx.audioWorklet) throw new Error('noworklet');
+    if(!voice.ready) await buildVoiceGraph();
+    voice.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    voice.src=voice.ctx.createMediaStreamSource(voice.stream); voice.src.connect(voice.n.hp);
+    voice.on=true; applyVoice();
+    status('Voice on: '+VPRESETS[VP.preset].name+'. Headphones sound best.',5000);
+  }catch(e){
+    const m={NotAllowedError:'Mic blocked. Allow microphone access for this site, then try again.',NotFoundError:'No microphone found.',NotReadableError:'The mic is in use by another app.'};
+    status(m[e.name]||(e.message==='noworklet'?'This browser cannot run the voice changer. Try an up-to-date Chrome, Edge, Safari, or Firefox.':'The voice changer could not start.'),8000);
+    voice.on=false;
+  }
+  voice.starting=false; syncVoiceUI();
+}
+function voiceOff(){
+  if(voice.src){ try{ voice.src.disconnect(); }catch(e){} voice.src=null; }
+  if(voice.stream){ voice.stream.getTracks().forEach(t=>t.stop()); voice.stream=null; }
+  voice.on=false; voice.jaw=0; syncVoiceUI();
+}
+function toggleVoice(){ if(voice.on) voiceOff(); else voiceOn(); }
+function voiceLevel(){ // mic loudness drives the mouth and the meter
+  if(!voice.on||!voice.n){ if(voice.jaw){ voice.jaw=0; $('vMeter').style.width='0'; } return; }
+  voice.n.an.getFloatTimeDomainData(voice.buf);
+  let s=0; for(let i=0;i<voice.buf.length;i++) s+=voice.buf[i]*voice.buf[i];
+  const db=10*Math.log10(s/voice.buf.length+1e-10);
+  const lv=clamp((db+52)/30);
+  voice.level=lv;
+  voice.jaw+=(lv-voice.jaw)*(lv>voice.jaw?.6:.25);
+  $('vMeter').style.width=Math.round(lv*100)+'%';
+}
+function syncVoiceUI(){
+  $('vOn').checked=voice.on;
+  $('voicebtn').innerHTML='&#127897; Voice: '+(voice.on?(VP.preset==='custom'?'Custom':VPRESETS[VP.preset].name.split(' (')[0]):'off');
+  $('voicebtn').classList.toggle('lit',voice.on);
+  $('vPreset').value=VP.preset;
+  for(const k of VKEYS){ $('v'+k[0].toUpperCase()+k.slice(1)).value=VP[k]; }
+  $('vPitchV').textContent=(VP.pitch>0?'+':'')+VP.pitch;
+  $('vToneV').textContent=VP.tone<-5?'darker':VP.tone>5?'brighter':'even';
+  for(const k of ['robot','wobble','echo','grit']) $('v'+k[0].toUpperCase()+k.slice(1)+'V').textContent=VP[k]+'%';
+  $('vMatch').checked=VP.match; $('vLive').checked=VP.live; $('vLips').checked=VP.lips;
+}
+function loadVoicePreset(id){
+  VP.preset=id; const p=VPRESETS[id];
+  if(id!=='custom'){ for(const k of VKEYS) VP[k]=p[k]; VP.band=!!p.band; }
+  savePrefs(); applyVoice(); syncVoiceUI();
+}
+window.voiceMatchChar=()=>{ if(VP.match&&VPRESETS[CHARS[charIdx].id]) loadVoicePreset(CHARS[charIdx].id); };
+(function setupVoiceUI(){
+  const sel=$('vPreset');
+  for(const id in VPRESETS){ const o=document.createElement('option'); o.value=id; o.textContent=VPRESETS[id].name; sel.append(o); }
+  sel.onchange=e=>loadVoicePreset(e.target.value);
+  for(const k of VKEYS){ $('v'+k[0].toUpperCase()+k.slice(1)).oninput=e=>{ VP[k]=+e.target.value; VP.preset='custom'; VP.match=false; savePrefs(); applyVoice(); syncVoiceUI(); }; }
+  $('vOn').onchange=e=>{ if(e.target.checked) voiceOn(); else voiceOff(); };
+  $('vMatch').onchange=e=>{ VP.match=e.target.checked; savePrefs(); if(VP.match) window.voiceMatchChar(); };
+  $('vLive').onchange=e=>{ VP.live=e.target.checked; savePrefs(); applyVoice(); };
+  $('vLips').onchange=e=>{ VP.lips=e.target.checked; savePrefs(); };
+  $('voicebtn').onclick=()=>{
+    document.body.classList.remove('setopen');
+    const open=document.body.classList.toggle('voiceopen');
+    if(open&&!voice.on) voiceOn(); // first tap turns it on (browsers need a tap before sound)
+  };
+  window.voiceMatchChar();
+  syncVoiceUI();
+})();
+
 /* ---------- test hook: lets a script pose the character without a camera ---------- */
-window.__mirror={S,T,CHARS,pickChar,setBg,
+window.__mirror={S,T,CHARS,pickChar,setBg,voice,VP,loadVoicePreset,SHIFTER_SRC,
   pose(o){ frozen=true; const b=blankRig(); for(const k in b) if(k!=='hand') S[k]=typeof b[k]==='object'?{...b[k]}:b[k]; S.hand=[null,null]; Object.assign(S,o||{}); },
   unfreeze(){ frozen=false; },
   solveElbow, blankRig, get W(){return W;}, get H(){return H;}};
