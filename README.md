@@ -29,6 +29,7 @@ It runs entirely in the browser: one HTML file, no install, no account. It works
 | **Camera window** | Shows your real camera in a small window so you can compare. |
 | **Recenter** (`R`) | Sets your current head position as "looking straight ahead". |
 | **🎙 Voice** (`M`) | Opens the voice changer and turns it on. Pick a voice, or shape your own with the sliders. |
+| **📺 Call mode** (`C`) | Hides every button and the mouse pointer, so a video call shows only your character. Press `Esc` or double-click to bring the buttons back. |
 | **Photo** (`P`) | Saves a picture of your character. |
 | **Rec** (`V`) | Records a clip, up to 2 minutes, with sound. If the voice changer is on, the clip gets the funny voice. Otherwise it records your normal voice (if Mic sound in clips is on). Save it or share it. |
 | **Hide** (`H`) | Hides the buttons for a clean picture. |
@@ -70,6 +71,7 @@ Move the pointer and your character looks around. Hold the mouse button (or your
 |---|---|
 | **Face tracking** | [MediaPipe Face Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker) finds 478 points on your face and 52 expression values (blink, brow raise, smile, jaw open, cheek puff, gaze and more) in every video frame, right in your browser. |
 | **Head pose** | Turn (yaw), nod (pitch), and tilt (roll) are worked out from 3D points on your cheeks, forehead, chin, and eye corners. Recenter subtracts your natural resting angle. |
+| **Steady arms** | The pose tracker always reports a guess, even for arms it cannot see. A wrist or elbow only moves the character after it has been seen clearly for 3 frames in a row. It stays trusted until it gets truly unclear, and a sudden one-frame leap is held back unless it repeats. Hands must look the right size for your face and sit near a clearly seen wrist. Small jitter is smoothed hard, and big real moves stay quick. |
 | **Arms and hands** | [MediaPipe Pose Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker) tracks your shoulders, elbows, and wrists. [MediaPipe Hand Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker) tracks 21 points per hand for the fingers. Where the camera cannot see an elbow, a two-bone arm solver places it naturally. |
 | **Cartoon body** | Real shoulders sit far below the face, so the character's shoulders are tucked up under its head and pulled in. They still follow your lean, tilt, and shrug, and the paws still go exactly where your hands are. |
 | **The characters** | Every character is drawn live in code (Canvas 2D), with no images. Eyes, brows, nose, and mouth sit on an imaginary sphere, so they shift and foreshorten when the head turns. Ears and the robot's antenna bounce on springs. |
@@ -79,6 +81,41 @@ Move the pointer and your character looks around. Hold the mouse button (or your
 | **Smoothing** | Every value is smoothed so the character moves fluidly instead of jittering. Blinks stay fast, and head and body motion are steadier. |
 
 The camera image is processed on your device. Nothing from your video is uploaded anywhere. The tracking library and models are downloaded from public CDNs when the app loads, so you need an internet connection.
+
+## Be your character on a video call
+
+Grandkids on Facebook Messenger, family on Zoom, friends on Discord: they can see and hear your character instead of you. A web page cannot act as a webcam by itself, so two free helpers do the hand-off:
+
+- **OBS Studio** shows the Mirror window to your call app as a webcam named **OBS Virtual Camera**.
+- **A virtual audio cable** carries the funny voice to your call app as a microphone. On Windows that is **VB-Cable**. On a Mac it is **BlackHole**.
+
+This works on a computer. Phone apps (like Messenger on a phone) do not let anything replace the camera, so on a phone, record a clip and send it instead.
+
+### One-time setup (Windows)
+
+1. Install **OBS Studio** from [obsproject.com](https://obsproject.com).
+2. Install **VB-Cable** from [vb-audio.com/Cable](https://vb-audio.com/Cable/), then restart your computer. (Mac: install [BlackHole](https://existential.audio/blackhole/) instead.)
+3. Open Sentinel Mirror in **its own Chrome window**. Drag its tab out of your main window.
+4. In OBS, under **Sources**, click **+** → **Window Capture**, and pick the Chrome window that shows Sentinel Mirror. Right-click the new source → **Transform** → **Fit to screen**. If the picture is black, set the capture method to **Windows 10 (1903 and up)**.
+
+### Every call
+
+1. In Sentinel Mirror, tap **Start**, pick your character, and tap **🎙 Voice**.
+2. In the Voice panel, set **Listen to** to your real microphone, and **Voice goes to** to **CABLE Input (VB-Audio Virtual Cable)**.
+3. Tap **📺 Call mode**.
+4. In OBS, click **Start Virtual Camera**. You can minimize OBS after that.
+5. Open Messenger at [facebook.com](https://www.facebook.com) or [messenger.com](https://www.messenger.com) in another browser window, and start the video call.
+6. In the call's settings, choose:
+   - **Camera:** OBS Virtual Camera
+   - **Microphone:** CABLE Output (VB-Audio Virtual Cable)
+   - **Speaker:** your normal headphones or speakers
+
+   If the call has no device menu, set them in Chrome instead: **Settings → Privacy and security → Site settings → Camera** (and **Microphone**).
+7. Wear headphones, so the people you're calling don't get picked up by your mic.
+
+**Keep the Mirror window visible on screen.** Put it side by side with the call, or on a second monitor. Chrome pauses windows that are completely covered, and your character would freeze.
+
+Zoom, Google Meet, Microsoft Teams, Discord, and Skype work the same way. Pick **OBS Virtual Camera** and **CABLE Output** in their settings.
 
 ## Tips
 
@@ -113,6 +150,10 @@ Browsers only allow camera access on https pages or localhost, so opening the fi
 - **Head turns or nods the wrong amount:** Look straight at the screen and tap **Recenter**.
 - **Voice squeals or howls:** That is the speaker feeding back into the mic. Use headphones, lower the volume, or switch off **Hear it live**.
 - **No voice sound:** Check that the voice changer is on, that the browser has mic permission, and that your volume is up. On iPhone, the ring/silent switch can mute web audio.
+- **On a call, they see you instead of your character:** In the call app's settings, pick **OBS Virtual Camera**, and check that OBS says the virtual camera is running.
+- **On a call, they hear your normal voice:** The call app is still using your real mic. Pick **CABLE Output** as its microphone.
+- **On a call, they hear nothing:** In the Voice panel, check that **Listen to** is your real mic (not the cable) and **Voice goes to** is **CABLE Input**.
+- **Character freezes during a call:** The Mirror window is covered. Keep it visible on screen.
 - **Turn on Show tracking points** in Settings to see exactly what the camera is picking up, with live numbers for head angles and expressions.
 
 ## Built with
