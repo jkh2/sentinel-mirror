@@ -131,6 +131,7 @@ body.setopen #settings,body.voiceopen #voice{display:flex}
     <video id="clipvid" controls playsinline loop></video>
     <img id="clipimg" alt="Your photo" style="display:none">
     <div id="clipinfo"></div>
+    <div id="clipnote" style="font-size:13px;line-height:1.45;color:#ffd6a0;min-height:0"></div>
     <div class="row">
       <a class="btn" id="clipsave">Save</a>
       <button id="clipshare" style="display:none">Share</button>
@@ -1080,7 +1081,7 @@ function showResult(blob,mime,secs,isPhoto){
     $('clipinfo').textContent=ext.toUpperCase()+(h264?' (H.264)':'')+' · '+(blob.size/1048576).toFixed(1)+' MB · '+fmtTime(secs)+
       (h264?'':'. This browser saved it in a format some apps will not accept. If posting fails, try Share, or convert it to a standard H.264 MP4.');
   }
-  const a=$('clipsave'); a.href=clipURL; a.download=clipName;
+  const a=$('clipsave'); a.href=clipURL; a.download=clipName; clipNote(IN_APP?'Tip: this app\'s built-in browser cannot save files. Open this page in Chrome or Safari to save clips.':'');
   let canShare=false;
   try{ const f=new File([blob],clipName,{type:blob.type}); canShare=!!(navigator.canShare&&navigator.canShare({files:[f]})); }catch(e){}
   $('clipshare').style.display=canShare?'':'none';
@@ -1088,6 +1089,31 @@ function showResult(blob,mime,secs,isPhoto){
 }
 $('rec').onclick=()=>{ if(rec) stopRec(); else startRec(); };
 $('clipdiscard').onclick=()=>{ $('clip').classList.remove('show'); $('clipvid').pause(); };
+// Saving works differently on every phone, so Save picks the way that actually lands the file somewhere you can find it.
+const UA=navigator.userAgent;
+const IN_APP=/FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger|Line\/|Snapchat|TikTok/i.test(UA);
+const IS_IOS=/iPad|iPhone|iPod/.test(UA)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const IS_MOBILE=IS_IOS||/Android/i.test(UA);
+function clipNote(m){ $('clipnote').textContent=m; }
+$('clipsave').onclick=async e=>{
+  if(IN_APP){ e.preventDefault(); clipNote('This app\'s built-in browser cannot save files. Tap the \u22EF menu and choose Open in browser (Chrome or Safari), then record again.'); return; }
+  const isPhoto=clipName.endsWith('.png');
+  if(IS_MOBILE&&clipBlob){
+    let f=null; try{ f=new File([clipBlob],clipName,{type:clipBlob.type}); }catch(_){}
+    if(f&&navigator.canShare&&navigator.canShare({files:[f]})){
+      e.preventDefault(); // the share menu is the dependable way to put it in Photos or Gallery
+      try{ await navigator.share({files:[f]}); clipNote(IS_IOS?(isPhoto?'Saved if you chose Save Image.':'Saved if you chose Save Video. It is in your Photos.'):'Done. Pick Photos, Gallery or Files in that menu to keep it.'); }
+      catch(err){ if(err&&err.name==='AbortError') clipNote(IS_IOS?'In the menu, choose '+(isPhoto?'Save Image':'Save Video')+' to put it in your Photos.':'Pick Photos, Gallery or Files in the menu to keep it.'); else downloadClip(); }
+      return;
+    }
+  }
+  e.preventDefault(); downloadClip();
+};
+function downloadClip(){
+  const a=document.createElement('a'); a.href=clipURL; a.download=clipName; a.rel='noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  clipNote(IS_IOS?'Look in the Files app, in Downloads.':IS_MOBILE?'Saved to your Downloads folder (open the Files or Downloads app).':'Saved to your Downloads folder as '+clipName+'.');
+}
 $('clipshare').onclick=async()=>{
   try{ await navigator.share({files:[new File([clipBlob],clipName,{type:clipBlob.type})],title:'Sentinel Mirror'}); }
   catch(e){ if(e&&e.name!=='AbortError') status('Sharing did not work here. Use Save instead.',6000); }
